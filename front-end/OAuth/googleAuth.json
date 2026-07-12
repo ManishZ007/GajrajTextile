@@ -1,0 +1,12 @@
+{
+  "web": {
+    "client_id": "433605740579-1c4thl3pirq5nqrbaj9tti7msqnqptfm.apps.googleusercontent.com",
+    "project_id": "gajraj-demo-project",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_secret": "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",
+    "redirect_uris": ["http://localhost:3000/api/auth/callback/google"],
+    "javascript_origins": ["http://localhost:3000"]
+  }
+}

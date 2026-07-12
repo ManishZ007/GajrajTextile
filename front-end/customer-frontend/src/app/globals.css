@@ -1,0 +1,210 @@
+@import 'tailwindcss';
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@font-face {
+  font-family: 'Against';
+  src: url('/fonts/against.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Switzer — full weight range, no italics ─────────────────────────────── */
+@font-face {
+  font-family: 'Switzer';
+  src: url('/fonts/Switzer-Thin.otf') format('opentype');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Switzer';
+  src: url('/fonts/Switzer-Extralight.otf') format('opentype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Switzer';
+  src: url('/fonts/Switzer-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Switzer';
+  src: url('/fonts/Switzer-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Switzer';
+  src: url('/fonts/Switzer-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Switzer';
+  src: url('/fonts/Switzer-Semibold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Switzer';
+  src: url('/fonts/Switzer-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Switzer';
+  src: url('/fonts/Switzer-Extrabold.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Switzer';
+  src: url('/fonts/Switzer-Black.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'BebasNeueRegular';
+  src: url('/fonts/LEMONMILK-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'CaviarDreams';
+  src: url('/fonts/CaviarDreams.ttf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'CocoGooseUltra';
+  src: url('/fonts/Cocogoose-Pro-Ultralight-trial.ttf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'CocoGooseProLight';
+  src: url('/fonts/Cocogoose-Pro-Light-trial.ttf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'BebasNeueRegular';
+  src: url('/fonts/BebasNeue-Regular.ttf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lexend-VariableFontwght';
+  src: url('/fonts/Lexend-VariableFont_wght.ttf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'boldasansflsans';
+  src: url('/fonts/bolda-sansfl.sans.ttf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'sanshiroblack';
+  src: url('/fonts/sanshiro.black.ttf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: 'Switzer', ui-sans-serif, system-ui;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+html {
+  scrollbar-width: none;
+}
+body {
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent long words / URLs from blowing out layout on mobile */
+* {
+  word-break: break-word;
+}
+
+:root {
+  /* ── Page backgrounds ── */
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-muted: rgba(0, 0, 0, 0.035);
+
+  /* ── Text ── */
+  --color-text: #0a0a0a;
+  --color-text-muted: #4a4a4a;
+  --color-text-subtle: #9a9a9a;
+
+  /* ── Borders ── */
+  --color-border: rgba(0, 0, 0, 0.07);
+  --color-border-strong: rgba(0, 0, 0, 0.15);
+
+  /* ── Glassmorphism (page level) ── */
+  --color-glass: rgba(255, 255, 255, 0.75);
+  --color-glass-border: rgba(0, 0, 0, 0.08);
+
+  /* ── Accent ── */
+  --color-accent: #0a0a0a;
+  --color-accent-text: #ffffff;
+
+  /* ── Sidebar — always dark glass regardless of page theme ── */
+  --sidebar-bg: rgba(12, 12, 12, 0.9);
+  --sidebar-border: rgba(255, 255, 255, 0.09);
+  --sidebar-border-strong: rgba(255, 255, 255, 0.2);
+  --sidebar-text: rgba(255, 255, 255, 0.93);
+  --sidebar-text-muted: rgba(255, 255, 255, 0.62);
+  --sidebar-text-subtle: rgba(255, 255, 255, 0.38);
+  --sidebar-surface: rgba(255, 255, 255, 0.06);
+  --sidebar-accent: #f0f0f0;
+  --sidebar-accent-text: #0a0a0a;
+}
+
+/* ── Apply root background + text automatically ─────────────────────────── */
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Switzer', ui-sans-serif, system-ui;
+  font-weight: 400;
+}

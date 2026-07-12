@@ -1,0 +1,2 @@
+export const PRODUCT_SUSTANIBILITY: string =
+  "Every Paithani saree begins with carefully sourced pure silk from Bengaluru, one of India's most respected silk-producing regions. Combined with premium zari and woven by skilled artisans using traditional techniques, each creation celebrates generations of craftsmanship while maintaining the highest standards of quality and authenticity. We continually work with trusted suppliers who share our commitment to preserving the rich cultural heritage of Paithani weaving.";

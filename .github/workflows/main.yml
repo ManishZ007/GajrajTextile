@@ -1,0 +1,26 @@
+name: Build and Test Docker Images
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and run authentication
+        run: |
+          docker build -t authentication:test ./authentication
+          docker run --rm authentication:test
+
+      - name: Build and run customer
+        run: |
+          docker build -t customer:test ./customer
+          docker run --rm customer:test
