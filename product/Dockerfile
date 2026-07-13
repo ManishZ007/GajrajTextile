@@ -1,3 +1,3 @@
 FROM ubuntu:latest
 
-CMD [ "echo", "Hello this is Minal from product service" ]
+ENTRYPOINT [ "echo", "Hello this is Minal from product service" ]
