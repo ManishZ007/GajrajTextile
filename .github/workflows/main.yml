@@ -23,3 +23,33 @@ jobs:
 
       - name: Build Customer Frontend Side Image
         run: docker build -t customerfrontend:test ./front-end/customer-frontend
+
+      - name: Build Manager Frontend Side Image
+        run: docker build -t managerfronend:test ./front-end/manager-frontend
+
+      - name: Build Manager Service Image
+        run: docker build -t managerservice:test ./manager
+
+      - name: Build Notification Service Image
+        run: docker build -t notificationservice:test ./notification
+
+      - name: Build Order Service Image
+        run: docker build -t orderservice:test ./order
+
+      - name: Build Owner Service Image
+        run: docker build -t ownerservice:test ./owner
+
+      - name: Build Payment Service Image
+        run: docker build -t paymentservice:test ./payment
+
+      - name: Build Product Service Image
+        run: docker build -t productservice:test ./product
+
+      - name: Build Server_Registry Service Image
+        run: docker build -t serverregistryservice:test ./server_registry
+
+      - name: Build Shipping Service Image
+        run: docker build -t shippingservice:test ./shipping
+
+      - name: Build Worker Service Image
+        run: docker build -t workerservice:test ./worker
