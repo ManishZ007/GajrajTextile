@@ -1,0 +1,53 @@
+services:
+
+  server_registry:
+    build: ./server_registry
+    container_name: server_registry
+
+  authentication:
+    build: ./authentication
+    container_name: authentication
+
+  customer:
+    build: ./customer
+    container_name: customer
+
+  product:
+    build: ./product
+    container_name: product
+
+  order:
+    build: ./order
+    container_name: order
+
+  payment:
+    build: ./payment
+    container_name: payment
+
+  shipping:
+    build: ./shipping
+    container_name: shipping
+
+  manager:
+    build: ./manager
+    container_name: manager
+
+  worker:
+    build: ./worker
+    container_name: worker
+
+  owner:
+    build: ./owner
+    container_name: owner
+
+  notification:
+    build: ./notification
+    container_name: notification
+
+  customer-frontend:
+    build: ./front-end/customer-frontend
+    container_name: customer_frontend
+
+  manager-frontend:
+    build: ./front-end/manager-frontend
+    container_name: manager_frontend
