@@ -20,3 +20,6 @@ jobs:
 
       - name: Build customer image
         run: docker build -t customer:test ./customer
+
+      - name: Build Customer Frontend Side Image
+        run: docker build -t customerfrontend:test ./front-end/customer-frontend
