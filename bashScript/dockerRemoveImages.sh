@@ -1,0 +1,2 @@
+ #!/bin/bash
+ docker rmi completeproject-customer-frontend:latest completeproject-manager-frontend:latest completeproject-notification:latest completeproject-product:latest completeproject-customer:latest completeproject-manager:latest completeproject-order:latest completeproject-payment:latest completeproject-server_registry:latest completeproject-shipping:latest completeproject-worker:latest completeproject-authentication:latest completeproject-owner:latest
