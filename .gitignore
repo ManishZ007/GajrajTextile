@@ -71,3 +71,7 @@ Thumbs.db
 
 # Docker
 *.dockerignore
+
+.Documentation
+./batScript
+./bashScript
