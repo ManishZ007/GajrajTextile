@@ -6,7 +6,9 @@ import {
   fetchCategories,
   fetchCategoryById,
   updateCategory,
+  deleteCategoryBaseModel,
   getCategoryAssetUploadUrl,
+  getCategoryTextureUploadUrl,
   uploadToS3,
   fetchPadarsByCategory,
   fetchBordersByCategory,
@@ -102,6 +104,7 @@ function ModelItemForm({
   onCancel,
   createFn,
   updateFn,
+  assetType = "TEXTURE",
 }: {
   categoryId: string;
   initial?: NamedItem;
@@ -109,6 +112,7 @@ function ModelItemForm({
   onCancel: () => void;
   createFn: (data: { name: string; modelUrl: string; categoryId: string }) => Promise<unknown>;
   updateFn: (id: string, data: { name: string; modelUrl: string }) => Promise<unknown>;
+  assetType?: "MODEL" | "TEXTURE";
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [modelUrl, setModelUrl] = useState(initial?.modelUrl ?? "");
@@ -117,11 +121,16 @@ function ModelItemForm({
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isTexture = assetType === "TEXTURE";
+  const acceptAttr = isTexture ? ".jpg,.jpeg,.png,.webp" : ".glb,.gltf";
+  const acceptLabel = isTexture ? "JPG / PNG / WebP" : "GLB / GLTF";
+
   async function handleFileUpload(file: File) {
     setError("");
     setUploading(true);
     try {
-      const { uploadUrl, key } = await getCategoryAssetUploadUrl(file.name, categoryId);
+      const getUrl = isTexture ? getCategoryTextureUploadUrl : getCategoryAssetUploadUrl;
+      const { uploadUrl, key } = await getUrl(file.name, categoryId);
       await uploadToS3(uploadUrl, file);
       setModelUrl(key);
       if (!name) setName(file.name.replace(/\.[^.]+$/, ""));
@@ -156,7 +165,7 @@ function ModelItemForm({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".glb,.gltf"
+        accept={acceptAttr}
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -176,7 +185,7 @@ function ModelItemForm({
           />
         </div>
         <div>
-          <label className={labelCls}>Model URL (S3) *</label>
+          <label className={labelCls}>{isTexture ? "Texture image (S3) *" : "Model URL (S3) *"}</label>
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -189,7 +198,7 @@ function ModelItemForm({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              title="Upload .glb / .gltf file"
+              title={`Upload ${acceptLabel} file`}
               className="shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 whitespace-nowrap"
             >
               {uploading ? <IconLoader /> : <IconUpload />}
@@ -200,9 +209,11 @@ function ModelItemForm({
             <p className="text-xs text-gray-400 mt-1">Uploading to S3...</p>
           )}
           {modelUrl && !uploading && (
-            <p className="text-xs text-gray-400 mt-1 truncate" title={modelUrl}>
-              {modelUrl}
-            </p>
+            isTexture ? (
+              <img src={modelUrl} alt="preview" className="mt-2 h-12 w-12 rounded-lg object-cover border border-gray-200" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            ) : (
+              <p className="text-xs text-gray-400 mt-1 truncate" title={modelUrl}>{modelUrl}</p>
+            )
           )}
         </div>
       </div>
@@ -241,6 +252,7 @@ function ModelItemList({
   createFn,
   updateFn,
   deleteFn,
+  assetType = "TEXTURE",
 }: {
   categoryId: string;
   items: NamedItem[];
@@ -249,6 +261,7 @@ function ModelItemList({
   createFn: (data: { name: string; modelUrl: string; categoryId: string }) => Promise<unknown>;
   updateFn: (id: string, data: { name: string; modelUrl: string }) => Promise<unknown>;
   deleteFn: (id: string) => Promise<unknown>;
+  assetType?: "MODEL" | "TEXTURE";
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -296,6 +309,7 @@ function ModelItemList({
                         initial={item}
                         createFn={createFn}
                         updateFn={updateFn}
+                        assetType={assetType}
                         onSaved={() => { setEditId(null); onRefresh(); }}
                         onCancel={() => setEditId(null)}
                       />
@@ -304,7 +318,16 @@ function ModelItemList({
                 ) : (
                   <tr key={item.id} className="border-t border-gray-50 hover:bg-white/40 transition-colors">
                     <td className="px-4 py-3 font-medium text-gray-800">{item.name}</td>
-                    <td className="px-4 py-3 text-gray-500 max-w-xs truncate text-xs">{item.modelUrl}</td>
+                    <td className="px-4 py-3 text-gray-500 max-w-xs text-xs">
+                      {assetType === "TEXTURE" && item.modelUrl ? (
+                        <div className="flex items-center gap-2">
+                          <img src={item.modelUrl} alt={item.name} className="w-8 h-8 rounded object-cover border border-gray-200 shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          <span className="truncate">{item.modelUrl}</span>
+                        </div>
+                      ) : (
+                        <span className="truncate">{item.modelUrl}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 justify-end">
                         <button
@@ -335,6 +358,7 @@ function ModelItemList({
           categoryId={categoryId}
           createFn={createFn}
           updateFn={updateFn}
+          assetType={assetType}
           onSaved={() => { setShowAdd(false); onRefresh(); }}
           onCancel={() => setShowAdd(false)}
         />
@@ -589,6 +613,7 @@ export default function AssetsPage() {
   const [baseModelUrl, setBaseModelUrl] = useState("");
   const [baseModelUploading, setBaseModelUploading] = useState(false);
   const [baseModelSaving, setBaseModelSaving] = useState(false);
+  const [baseModelDeleting, setBaseModelDeleting] = useState(false);
   const [baseModelError, setBaseModelError] = useState("");
   const [baseModelSuccess, setBaseModelSuccess] = useState(false);
   const baseModelFileRef = useRef<HTMLInputElement>(null);
@@ -623,7 +648,12 @@ export default function AssetsPage() {
         setCategoryData(cat);
         setBaseModelUrl(cat.baseModelUrl ?? "");
       })
-      .catch(() => {});
+      .catch(() => {
+        // fallback: use data already in the categories list
+        const fallback = categories.find((c) => c.categoryId === selectedCategoryId) ?? null;
+        setCategoryData(fallback);
+        setBaseModelUrl(fallback?.baseModelUrl ?? "");
+      });
     fetchTabData(activeTab);
     fetchColors();
   }, [selectedCategoryId]);
@@ -642,8 +672,25 @@ export default function AssetsPage() {
     }
   }
 
-  async function handleSaveBaseModel() {
+  async function handleDeleteBaseModel() {
     if (!categoryData) return;
+    setBaseModelError("");
+    setBaseModelSuccess(false);
+    setBaseModelDeleting(true);
+    try {
+      await deleteCategoryBaseModel(selectedCategoryId);
+      setBaseModelUrl("");
+      setBaseModelSuccess(true);
+      setTimeout(() => setBaseModelSuccess(false), 3000);
+    } catch (err: unknown) {
+      setBaseModelError(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setBaseModelDeleting(false);
+    }
+  }
+
+  async function handleSaveBaseModel() {
+    if (!categoryData) { setBaseModelError("No category selected"); return; }
     setBaseModelError("");
     setBaseModelSuccess(false);
     setBaseModelSaving(true);
@@ -778,12 +825,22 @@ export default function AssetsPage() {
               </div>
               <button
                 onClick={handleSaveBaseModel}
-                disabled={baseModelSaving || baseModelUploading}
+                disabled={baseModelSaving || baseModelUploading || baseModelDeleting}
                 className="px-4 py-2 text-sm font-medium bg-black text-white rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center gap-2 shrink-0"
               >
                 {baseModelSaving && <IconLoader />}
                 {baseModelSaving ? "Saving..." : "Save"}
               </button>
+              {baseModelUrl && (
+                <button
+                  onClick={handleDeleteBaseModel}
+                  disabled={baseModelDeleting || baseModelSaving || baseModelUploading}
+                  className="px-4 py-2 text-sm font-medium text-red-600 border border-red-100 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center gap-2 shrink-0"
+                >
+                  {baseModelDeleting && <IconLoader />}
+                  {baseModelDeleting ? "Removing..." : "Remove"}
+                </button>
+              )}
             </div>
             {baseModelError && (
               <p className="text-xs text-red-500 mt-2">{baseModelError}</p>

@@ -82,6 +82,12 @@ export async function updateCategory(
   });
 }
 
+export async function deleteCategoryBaseModel(categoryId: string) {
+  return apiFetch(`${PRODUCT_SERVICE}/product/categories/${categoryId}/base-model-url`, {
+    method: "DELETE",
+  });
+}
+
 export async function deleteCategory(categoryId: string) {
   return apiFetch(`${PRODUCT_SERVICE}/product/categories/delete/${categoryId}`, {
     method: "DELETE",
@@ -353,6 +359,12 @@ export async function saveCategoryBaseContent(
 export async function getCategoryAssetUploadUrl(fileName: string, categoryId: string) {
   return apiFetch(
     `${PRODUCT_SERVICE}/product/assets/upload-url?fileName=${encodeURIComponent(fileName)}&assetType=MODEL&category=${categoryId}`,
+  );
+}
+
+export async function getCategoryTextureUploadUrl(fileName: string, categoryId: string) {
+  return apiFetch(
+    `${PRODUCT_SERVICE}/product/assets/upload-url?fileName=${encodeURIComponent(fileName)}&assetType=TEXTURE&category=${categoryId}`,
   );
 }
 
