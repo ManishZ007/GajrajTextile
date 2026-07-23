@@ -6,6 +6,7 @@ import com.gajraj.authentication.dto.auth.oauth.FacebookOAuthRequestDTO;
 import com.gajraj.authentication.dto.auth.oauth.GoogleOAuthRequestDTO;
 import com.gajraj.authentication.dto.refresh_token.RequestRefreshTokenDTO;
 import com.gajraj.authentication.dto.refresh_token.ResponseRefreshTokenDTO;
+import com.gajraj.authentication.dto.register.RegisterRequestDTO;
 import com.gajraj.authentication.dto.update_user.UpdateUserDTO;
 import com.gajraj.authentication.model.RefreshToken;
 import com.gajraj.authentication.model.Users;
@@ -43,8 +44,8 @@ public class AuthController {
     OAuthService oAuthService;
 
     @PostMapping("register")
-    public ResponseEntity<?> register(@RequestBody Users userRequest) {
-        return authService.register(userRequest);
+    public ResponseEntity<?> register(@RequestBody RegisterRequestDTO request) {
+        return authService.register(request);
     }
 
     @PostMapping("login")
@@ -72,6 +73,11 @@ public class AuthController {
     @PutMapping("updateUser/{user_id}/{internal_call_id}")
     public ResponseEntity<?> updateUser(@PathVariable UUID user_id, @PathVariable String internal_call_id, @RequestBody UpdateUserDTO updateUserDTO) {
         return authService.updateUser(user_id, internal_call_id, updateUserDTO);
+    }
+
+    @DeleteMapping("deleteUser/{user_id}")
+    public ResponseEntity<?> deleteUser(@PathVariable UUID user_id) {
+        return authService.deleteUser(user_id);
     }
 
     @PostMapping("/refresh")

@@ -7,6 +7,8 @@ import com.gajraj.authentication.dto.refresh_token.RequestRefreshTokenDTO;
 import com.gajraj.authentication.dto.refresh_token.ResponseRefreshTokenDTO;
 import com.gajraj.authentication.dto.update_user.UpdateUserDTO;
 import com.gajraj.authentication.dto.update_user.updateCustomer.UpdateCustomerDTO;
+import com.gajraj.authentication.dto.register.RegisterRequestDTO;
+import com.gajraj.authentication.dto.register.WorkerRegisterDTO;
 import com.gajraj.authentication.dto.update_user.updateUser.UpdateUserInfoDTO;
 import com.gajraj.authentication.dto.update_user.updateWorker.UpdateWorkerDTO;
 import com.gajraj.authentication.dto.user.UserResponseDTO;
@@ -78,11 +80,23 @@ public class AuthService {
 
 
     // register
-    public ResponseEntity<?> register(Users user)  {
+    public ResponseEntity<?> register(RegisterRequestDTO request)  {
+        System.out.println(request);
         try{
-            if (user.getEmail() == null || user.getPasswordHash() == null || user.getRole() == null) {
+            if (request == null || request.getEmail() == null || request.getPasswordHash() == null || request.getRole() == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("email, password and role are required");
             }
+
+            if (request.getRole() == Users.Role.WORKER) {
+                WorkerRegisterDTO w = request.getWorker();
+                if (w == null || w.getWorkExperience() == null || w.getGender() == null
+                        || w.getDateOfBirth() == null || w.getManagerId() == null || w.getManagerId().isBlank()) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body("worker block with workExperience, gender, dateOfBirth and managerId is required for WORKER role");
+                }
+            }
+
+            Users user = request.toUser();
 
             if(userRepo.findByEmail(user.getEmail()) != null ) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body("email already registered try another one");
@@ -103,6 +117,11 @@ public class AuthService {
                         commonResponse = customer.saveNewUser(payload);
                         break;
                     case WORKER:
+                        WorkerRegisterDTO w = request.getWorker();
+                        payload.setWorkExperience(w.getWorkExperience());
+                        payload.setGender(w.getGender());
+                        payload.setDateOfBirth(w.getDateOfBirth());
+                        payload.setManagerId(w.getManagerId());
                         safeSendEmail(() -> notification.sendRegistrationEmailToWorker(saveUsers.getEmail(), saveUsers.getFullName()));
                         commonResponse = worker.savaNewUser(payload);
                         break;
@@ -444,6 +463,57 @@ public class AuthService {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("something went wrong in authentication service section");
+        }
+    }
+
+
+    public ResponseEntity<?> deleteUser(UUID user_id) {
+        try {
+            if (user_id == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("user_id is required");
+            }
+
+            Users user = userRepo.findById(user_id).orElse(null);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("user not found");
+            }
+
+            Users.Role role = user.getRole();
+            try {
+                switch (role) {
+                    case WORKER:
+                        ResponseEntity<Map<String, Object>> workerResp = worker.deleteWorker(user_id.toString());
+                        if (workerResp == null || !workerResp.getStatusCode().is2xxSuccessful()) {
+                            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                                    .body("worker service rejected the delete");
+                        }
+                        break;
+                    case CUSTOMER:
+                    case MANAGER:
+                    case OWNER:
+                        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                                .body("delete not implemented for role: " + role);
+                    default:
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body("unsupported role: " + role);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                        .body("downstream service call failed for " + role);
+            }
+
+            userRepo.delete(user);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "user deleted successfully",
+                    "user_id", user_id.toString(),
+                    "role", role.name()
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("something went wrong while deleting the user");
         }
     }
 

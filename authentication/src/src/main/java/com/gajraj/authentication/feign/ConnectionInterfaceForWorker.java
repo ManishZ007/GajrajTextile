@@ -4,6 +4,7 @@ import com.gajraj.authentication.dto.update_user.updateWorker.UpdateWorkerDTO;
 import com.gajraj.authentication.model.internal.SaveUserReq;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -19,5 +20,8 @@ public interface ConnectionInterfaceForWorker {
 
     @PostMapping("/internal/updateWorker/{workerId}")
     public ResponseEntity<Map<String, Object>> updateWorker(@PathVariable String workerId, @RequestBody UpdateWorkerDTO workerDTO);
+
+    @DeleteMapping("/internal/deleteWorker/{user_id}")
+    public ResponseEntity<Map<String, Object>> deleteWorker(@PathVariable("user_id") String userId);
 
 }
