@@ -84,9 +84,10 @@ public class ConfigAssetController {
     public ResponseEntity<?> getUploadUrl(
             @RequestParam String fileName,
             @RequestParam String assetType,
-            @RequestParam String category) {
+            @RequestParam String category,
+            @RequestParam(required = false) String subFolder) {
         try {
-            return ResponseEntity.ok(configAssetService.getUploadUrl(fileName, assetType, category));
+            return ResponseEntity.ok(configAssetService.getUploadUrl(fileName, assetType, category, subFolder));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }

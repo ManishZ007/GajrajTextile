@@ -35,7 +35,7 @@ public class BorderService {
 
         Border border = new Border();
         border.setBorderName(dto.getName());
-        border.setModelUrl(dto.getModelUrl());
+        border.setBorderUrl(dto.getModelUrl());
         border.setCategory(category);
         return toDTO(borderRepo.save(border));
     }
@@ -64,7 +64,7 @@ public class BorderService {
         if (dto.getName() != null && !dto.getName().isBlank())
             border.setBorderName(dto.getName());
         if (dto.getModelUrl() != null && !dto.getModelUrl().isBlank())
-            border.setModelUrl(dto.getModelUrl());
+            border.setBorderUrl(dto.getModelUrl());
         if (dto.getCategoryId() != null) {
             ProductCategories category = productCategoriesRepo.findById(dto.getCategoryId())
                     .orElseThrow(() -> new NoSuchElementException("Category not found: " + dto.getCategoryId()));
@@ -84,7 +84,7 @@ public class BorderService {
         return new BorderResponseDTO(
                 b.getBorderId(),
                 b.getBorderName(),
-                b.getModelUrl(),
+                b.getBorderUrl(),
                 b.getCategory().getCategoryId(),
                 b.getCategory().getName(),
                 b.getCreatedAt(),

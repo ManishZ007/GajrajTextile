@@ -35,7 +35,7 @@ public class ButtiService {
 
         Butti butti = new Butti();
         butti.setButtiName(dto.getName());
-        butti.setModelUrl(dto.getModelUrl());
+        butti.setButtiUrl(dto.getModelUrl());
         butti.setCategory(category);
         return toDTO(buttiRepo.save(butti));
     }
@@ -64,7 +64,7 @@ public class ButtiService {
         if (dto.getName() != null && !dto.getName().isBlank())
             butti.setButtiName(dto.getName());
         if (dto.getModelUrl() != null && !dto.getModelUrl().isBlank())
-            butti.setModelUrl(dto.getModelUrl());
+            butti.setButtiUrl(dto.getModelUrl());
         if (dto.getCategoryId() != null) {
             ProductCategories category = productCategoriesRepo.findById(dto.getCategoryId())
                     .orElseThrow(() -> new NoSuchElementException("Category not found: " + dto.getCategoryId()));
@@ -84,7 +84,7 @@ public class ButtiService {
         return new ButtiResponseDTO(
                 b.getButtiId(),
                 b.getButtiName(),
-                b.getModelUrl(),
+                b.getButtiUrl(),
                 b.getCategory().getCategoryId(),
                 b.getCategory().getName(),
                 b.getCreatedAt(),

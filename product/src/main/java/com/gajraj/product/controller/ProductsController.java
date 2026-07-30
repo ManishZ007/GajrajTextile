@@ -150,6 +150,17 @@ public class ProductsController {
         }
     }
 
+    @DeleteMapping("/categories/{categoryId}/base-model-url")
+    public ResponseEntity<?> deleteCategoryBaseModelUrl(@PathVariable UUID categoryId) {
+        try {
+            return ResponseEntity.ok(productCategoriesService.deleteBaseModelUrl(categoryId));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PatchMapping("/categories/{categoryId}/customizable")
     public ResponseEntity<?> setCategoryCustomizable(@PathVariable UUID categoryId,
                                                       @RequestParam boolean value) {

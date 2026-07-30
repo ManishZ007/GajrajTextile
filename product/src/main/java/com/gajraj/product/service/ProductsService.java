@@ -172,13 +172,13 @@ public class ProductsService {
                         UUID catId = p.getCategory().getCategoryId();
                         customOptions = categoryOptionsCache.computeIfAbsent(catId, id -> {
                             List<ProductListResponseDTO.CustomOptionItem> padars = padarRepo.findByCategoryCategoryId(id).stream()
-                                    .map(x -> new ProductListResponseDTO.CustomOptionItem(x.getPadarId(), x.getPadarName(), x.getModelUrl()))
+                                    .map(x -> new ProductListResponseDTO.CustomOptionItem(x.getPadarId(), x.getPadarName(), x.getPadarUrl()))
                                     .toList();
                             List<ProductListResponseDTO.CustomOptionItem> borders = borderRepo.findByCategoryCategoryId(id).stream()
-                                    .map(x -> new ProductListResponseDTO.CustomOptionItem(x.getBorderId(), x.getBorderName(), x.getModelUrl()))
+                                    .map(x -> new ProductListResponseDTO.CustomOptionItem(x.getBorderId(), x.getBorderName(), x.getBorderUrl()))
                                     .toList();
                             List<ProductListResponseDTO.CustomOptionItem> buttis = buttiRepo.findByCategoryCategoryId(id).stream()
-                                    .map(x -> new ProductListResponseDTO.CustomOptionItem(x.getButtiId(), x.getButtiName(), x.getModelUrl()))
+                                    .map(x -> new ProductListResponseDTO.CustomOptionItem(x.getButtiId(), x.getButtiName(), x.getButtiUrl()))
                                     .toList();
                             List<ProductListResponseDTO.ColorOptionItem> bodyColors = bodyColorRepo.findByCategoryCategoryId(id).stream()
                                     .map(x -> new ProductListResponseDTO.ColorOptionItem(x.getBodyColorId(), x.getColorName(), x.getHexCode()))

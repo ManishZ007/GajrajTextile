@@ -84,11 +84,15 @@ public class ProductCategoriesService {
 
         category.setName(dto.getName().trim());
         category.setDescription(dto.getDescription());
-        if (dto.getBaseModelUrl() != null) category.setBaseModelUrl(dto.getBaseModelUrl());
+        if (dto.getBaseModelUrl() != null) {
+            category.setBaseModelUrl(dto.getBaseModelUrl());
+            category.setCustomizable(!dto.getBaseModelUrl().isBlank());
+        } else if (dto.getCustomizable() != null) {
+            category.setCustomizable(dto.getCustomizable());
+        }
         if (dto.getBaseTitle() != null) category.setBaseTitle(dto.getBaseTitle());
         if (dto.getBaseDescription() != null) category.setBaseDescription(dto.getBaseDescription());
         if (dto.getBaseShortDescription() != null) category.setBaseShortDescription(dto.getBaseShortDescription());
-        if (dto.getCustomizable() != null) category.setCustomizable(dto.getCustomizable());
         return productCategoriesRepo.save(category);
     }
 
@@ -130,6 +134,16 @@ public class ProductCategoriesService {
         ProductCategories category = productCategoriesRepo.findById(categoryId)
                 .orElseThrow(() -> new NoSuchElementException("Category not found: " + categoryId));
         category.setBaseModelUrl(baseModelUrl);
+        category.setCustomizable(baseModelUrl != null && !baseModelUrl.isBlank());
+        return productCategoriesRepo.save(category);
+    }
+
+    @Transactional
+    public ProductCategories deleteBaseModelUrl(UUID categoryId) {
+        ProductCategories category = productCategoriesRepo.findById(categoryId)
+                .orElseThrow(() -> new NoSuchElementException("Category not found: " + categoryId));
+        category.setBaseModelUrl(null);
+        category.setCustomizable(false);
         return productCategoriesRepo.save(category);
     }
 

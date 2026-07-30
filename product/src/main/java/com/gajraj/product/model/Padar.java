@@ -14,7 +14,7 @@ import java.util.UUID;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "padar")
+@Table(name = "padars")
 public class Padar {
 
     @Id
@@ -25,8 +25,8 @@ public class Padar {
     @Column(name = "padar_name", nullable = false)
     private String padarName;              // e.g. "Peacock Padar"
 
-    @Column(name = "model_url", nullable = false)
-    private String modelUrl;              // e.g. "padars/fancy/peacock.glb"
+    @Column(name = "padar_url", nullable = false)
+    private String padarUrl;              // e.g. "padars/fancy/peacock.png"
 
     @ManyToOne
     @JoinColumn(name = "category_id", nullable = false)

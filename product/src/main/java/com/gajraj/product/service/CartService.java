@@ -54,21 +54,21 @@ public class CartService {
             padarRepo.findById(item.getSelectedPadarId()).ifPresent(p -> {
                 info.setPadarId(p.getPadarId());
                 info.setPadarName(p.getPadarName());
-                info.setPadarModelUrl(p.getModelUrl());
+                info.setPadarModelUrl(p.getPadarUrl());
             });
         }
         if (item.getSelectedBorderId() != null) {
             borderRepo.findById(item.getSelectedBorderId()).ifPresent(b -> {
                 info.setBorderId(b.getBorderId());
                 info.setBorderName(b.getBorderName());
-                info.setBorderModelUrl(b.getModelUrl());
+                info.setBorderModelUrl(b.getBorderUrl());
             });
         }
         if (item.getSelectedButtiId() != null) {
             buttiRepo.findById(item.getSelectedButtiId()).ifPresent(b -> {
                 info.setButtiId(b.getButtiId());
                 info.setButtiName(b.getButtiName());
-                info.setButtiModelUrl(b.getModelUrl());
+                info.setButtiModelUrl(b.getButtiUrl());
             });
         }
         if (item.getSelectedBodyColorId() != null) {

@@ -25,8 +25,8 @@ public class Border {
     @Column(name = "border_name", nullable = false)
     private String borderName;            // e.g. "Mor Border"
 
-    @Column(name = "model_url", nullable = false)
-    private String modelUrl;             // e.g. "borders/fancy/mor.glb"
+    @Column(name = "border_url", nullable = false)
+    private String borderUrl;             // e.g. "borders/fancy/narali.png"
 
     @ManyToOne
     @JoinColumn(name = "category_id", nullable = false)

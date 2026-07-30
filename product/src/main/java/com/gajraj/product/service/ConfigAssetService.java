@@ -161,8 +161,11 @@ public class ConfigAssetService {
         return Map.of("message", "Asset deactivated");
     }
 
-    public Map<String, String> getUploadUrl(String fileName, String assetType, String category) {
+    public Map<String, String> getUploadUrl(String fileName, String assetType, String category, String subFolder) {
         String prefix = "config-assets/" + category.toLowerCase() + "/" + assetType.toLowerCase();
+        if (subFolder != null && !subFolder.isBlank()) {
+            prefix += "/" + subFolder.toLowerCase();
+        }
         return s3Service.generateUploadUrl(prefix, fileName);
     }
 

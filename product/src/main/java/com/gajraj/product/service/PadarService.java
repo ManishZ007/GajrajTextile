@@ -35,7 +35,7 @@ public class PadarService {
 
         Padar padar = new Padar();
         padar.setPadarName(dto.getName());
-        padar.setModelUrl(dto.getModelUrl());
+        padar.setPadarUrl(dto.getModelUrl());
         padar.setCategory(category);
         return toDTO(padarRepo.save(padar));
     }
@@ -64,7 +64,7 @@ public class PadarService {
         if (dto.getName() != null && !dto.getName().isBlank())
             padar.setPadarName(dto.getName());
         if (dto.getModelUrl() != null && !dto.getModelUrl().isBlank())
-            padar.setModelUrl(dto.getModelUrl());
+            padar.setPadarUrl(dto.getModelUrl());
         if (dto.getCategoryId() != null) {
             ProductCategories category = productCategoriesRepo.findById(dto.getCategoryId())
                     .orElseThrow(() -> new NoSuchElementException("Category not found: " + dto.getCategoryId()));
@@ -84,7 +84,7 @@ public class PadarService {
         return new PadarResponseDTO(
                 p.getPadarId(),
                 p.getPadarName(),
-                p.getModelUrl(),
+                p.getPadarUrl(),
                 p.getCategory().getCategoryId(),
                 p.getCategory().getName(),
                 p.getCreatedAt(),

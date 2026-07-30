@@ -25,8 +25,8 @@ public class Butti {
     @Column(name = "butti_name", nullable = false)
     private String buttiName;            // e.g. "Mor Butti"
 
-    @Column(name = "model_url", nullable = false)
-    private String modelUrl;            // e.g. "buttis/fancy/mor.glb"
+    @Column(name = "butti_url", nullable = false)
+    private String buttiUrl;            // e.g. "buttis/fancy/mor.png"
 
     @ManyToOne
     @JoinColumn(name = "category_id", nullable = false)
