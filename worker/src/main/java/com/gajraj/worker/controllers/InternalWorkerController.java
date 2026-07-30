@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RequestMapping("internal")
 @RestController
 public class InternalWorkerController {
@@ -19,6 +21,12 @@ public class InternalWorkerController {
     public ResponseEntity<?> saveNewUser(@RequestBody SaveUserReq saveUserReq) {
 
         return internalService.saveNewUser(saveUserReq);
+    }
+
+
+    @DeleteMapping("/deleteWorker/{user_id}")
+    public ResponseEntity<Map<String, Object>> deleteWorker(@PathVariable("user_id") String userId) {
+        return internalService.deleteWorker(userId);
     }
 
 

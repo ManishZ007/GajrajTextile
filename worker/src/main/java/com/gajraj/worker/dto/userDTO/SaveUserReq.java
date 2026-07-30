@@ -8,8 +8,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class SaveUserReq {
-
     private String user_id;
-    private String fullName;
-
+    private int workExperience;
+    private String gender;
+    private String dateOfBirth;
+    private String managerId;
 }

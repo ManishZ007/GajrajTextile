@@ -26,11 +26,13 @@ public class WorkerController {
     ConnectionInterface authentication;
 
     @GetMapping("/getWorker")
-    public ResponseEntity<?> getWorker() {
+    public ResponseEntity<?> getWorker(@RequestParam(required = false) String userId) {
         ResponseEntity<Map<String, Object>> authResponse = null;
         ResponseEntity<?> worker = null;
         try{
-            String user_id = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+            String user_id = (userId != null && !userId.isBlank())
+                    ? userId
+                    : SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
             System.out.println(user_id);
             //auth service
             try {

@@ -43,6 +43,7 @@ public interface  WorkerRepo extends JpaRepository<Workers, UUID> {
             @Param("req") UpdateWorkerInDataBase req
     );
 
+    Workers findByUserId(String userId);
 
 
 }

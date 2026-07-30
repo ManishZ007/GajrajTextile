@@ -26,11 +26,11 @@ public class WorkerVerification {
     private String workerId;
 
     @Column(name = "old_status")
-    private VerificationStatus oldStatus;
+    private VerificationStatus oldStatus = VerificationStatus.PENDING;
 
 
     @Column(name = "new_status")
-    private VerificationStatus newStatus;
+    private VerificationStatus newStatus = VerificationStatus.PENDING;
 
     @Column(name = "change_by")
     private String changeBy;
