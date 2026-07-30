@@ -64,7 +64,7 @@ logs/
 Thumbs.db
 
 # Claude
-.claude/
+/.claude/
 
 # AWS
 .aws/
