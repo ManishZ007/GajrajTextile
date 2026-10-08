@@ -1,9 +1,15 @@
+export class ApiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
+
 export async function apiFetch(path: string, options: RequestInit = {}) {
+  const access = typeof window === "undefined" ? null : localStorage.getItem("access_token");
   let res = await fetch(path, {
     ...options,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...(access ? { Authorization: `Bearer ${access}` } : {}),
       ...options.headers,
     },
   });
@@ -25,7 +31,10 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 
       // Save new access_token for Bearer-based services (e.g. shipping)
       const refreshData = await refreshRes.json().catch(() => null);
-      const newToken = refreshData?.access_token ?? refreshData?.accessToken ?? refreshData?.token;
+      const newToken =
+        refreshData?.access_token ??
+        refreshData?.accessToken ??
+        refreshData?.token;
       if (newToken && typeof window !== "undefined") {
         localStorage.setItem("access_token", newToken);
       }
@@ -35,7 +44,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
         "Content-Type": "application/json",
         ...(options.headers as Record<string, string>),
       };
-      if (newToken && retryHeaders["Authorization"]) {
+      if (newToken) {
         retryHeaders["Authorization"] = `Bearer ${newToken}`;
       }
 
@@ -56,9 +65,13 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
       const body = await res.json();
       message = body.error ?? body.message ?? body ?? message;
     } catch {
-      try { message = await res.text() || message; } catch {}
+      try {
+        message = (await res.text()) || message;
+      } catch {}
     }
-    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+    throw new ApiError(
+      typeof message === "string" ? message : JSON.stringify(message), res.status,
+    );
   }
-  return res.json();
+  return res.status === 204 ? null : res.json();
 }

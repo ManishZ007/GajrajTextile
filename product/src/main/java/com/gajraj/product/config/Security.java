@@ -18,7 +18,7 @@ import java.util.List;
 public class Security {
 
     @Bean
-    public SecurityFilterChain securityFilterChain (HttpSecurity httpSecurity) throws Exception {
+    public SecurityFilterChain securityFilterChain (HttpSecurity httpSecurity, com.gajraj.product.service.JwtService.JWTService jwtService, @org.springframework.beans.factory.annotation.Value("${service.internal-token:}") String serviceToken) throws Exception {
 
         httpSecurity.csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(request -> {
@@ -34,6 +34,7 @@ public class Security {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         httpSecurity.authorizeHttpRequests(registry -> registry
+                .requestMatchers("/product/inventory/**", "/product/create", "/product/update/**", "/product/variants/update/**", "/product/variants/delete/**").hasAnyRole("MANAGER", "OWNER")
                 .requestMatchers("/manager/**").permitAll()
                 .requestMatchers("/product/**").permitAll()
                 .requestMatchers("/products/**").permitAll()
@@ -48,6 +49,7 @@ public class Security {
 
         );
 
+        httpSecurity.addFilterBefore(new InventoryAuthenticationFilter(jwtService, serviceToken), UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();
     }
 

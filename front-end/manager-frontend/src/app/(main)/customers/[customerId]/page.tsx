@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { ApiError } from "@/lib/api/apiFetch";
+import { fetchOrderPayment, PaymentSummary } from "@/lib/api/paymentApi";
 import { useParams, useRouter } from "next/navigation";
 import {
   fetchCustomerById,
@@ -65,7 +68,8 @@ interface FullProfile {
 interface Order {
   orderId: string;
   orderNumber: string;
-  orderType: string;
+  orderType?: string;
+  items?: { orderType?: string }[];
   orderStatus: string;
   totalAmount: number;
   paymentMethod: string;
@@ -486,6 +490,12 @@ export default function CustomerDetailPage() {
   const [loading, setLoading] = useState(true);
 
   // Orders
+  const orderRequest = useRef(0);
+  const [ordersError, setOrdersError] = useState("");
+  const [payments, setPayments] = useState<Record<string, PaymentSummary>>({});
+  const [paymentErrors, setPaymentErrors] = useState<Record<string, string>>({});
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [ordersRevision, setOrdersRevision] = useState(0);
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersTotal, setOrdersTotal] = useState(0);
   const [ordersPages, setOrdersPages] = useState(0);
@@ -521,27 +531,35 @@ export default function CustomerDetailPage() {
       .finally(() => setLoading(false));
   }
 
-  function loadOrders(userId: string) {
-    setOrdersLoading(true);
-    fetchOrdersByUser({
-      userId,
-      page: ordersPage,
-      size: ORDER_SIZE,
-      ...(ordersStatusFilter ? { status: ordersStatusFilter } : {}),
-    })
-      .then(
-        (data: {
-          content: Order[];
-          totalElements: number;
-          totalPages: number;
-        }) => {
-          setOrders(data.content ?? []);
-          setOrdersTotal(data.totalElements ?? 0);
-          setOrdersPages(data.totalPages ?? 0);
-        },
-      )
-      .catch(() => setOrders([]))
-      .finally(() => setOrdersLoading(false));
+  async function loadOrders(userId: string) {
+    const request = ++orderRequest.current;
+    setOrdersLoading(true); setOrdersError(""); setPayments({}); setPaymentErrors({}); setPaymentsLoading(false);
+    try {
+      const data = await fetchOrdersByUser({ userId, page: ordersPage, size: ORDER_SIZE,
+        ...(ordersStatusFilter ? { status: ordersStatusFilter } : {}) });
+      if (request !== orderRequest.current) return;
+      const rows: Order[] = data.content ?? [];
+      setOrders(rows); setOrdersTotal(data.totalElements ?? 0); setOrdersPages(data.totalPages ?? 0);
+      setOrdersLoading(false); setPaymentsLoading(true);
+      const results = await Promise.allSettled(rows.map(order => fetchOrderPayment(order.orderId)));
+      if (request !== orderRequest.current) return;
+      const summaries: Record<string, PaymentSummary> = {};
+      const errors: Record<string, string> = {};
+      results.forEach((result, index) => {
+        const id = rows[index].orderId;
+        if (result.status === "fulfilled") summaries[id] = result.value;
+        else errors[id] = result.reason instanceof ApiError && result.reason.status === 404
+          ? "No payment record" : "Payment unavailable — refresh to retry";
+      });
+      setPayments(summaries); setPaymentErrors(errors);
+    } catch (error) {
+      if (request === orderRequest.current) {
+        setOrders([]); setOrdersTotal(0); setOrdersPages(0);
+        setOrdersError(error instanceof Error ? error.message : "Could not load orders");
+      }
+    } finally {
+      if (request === orderRequest.current) { setOrdersLoading(false); setPaymentsLoading(false); }
+    }
   }
 
   useEffect(() => {
@@ -550,8 +568,9 @@ export default function CustomerDetailPage() {
 
   useEffect(() => {
     if (profile?.authentication?.auth?.userId)
-      loadOrders(profile.authentication.auth.userId);
-  }, [profile?.authentication?.auth?.userId, ordersPage, ordersStatusFilter]);
+      void loadOrders(profile.authentication.auth.userId);
+    return () => { orderRequest.current++; };
+  }, [profile?.authentication?.auth?.userId, ordersPage, ordersStatusFilter, ordersRevision]);
 
   async function handleDeleteAddress() {
     if (!deleteAddress) return;
@@ -825,7 +844,7 @@ export default function CustomerDetailPage() {
       {/* ── Order history ────────────────────────────────────────────────────── */}
       <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-gray-800">Order history</p>
+          <div className="flex items-center gap-3"><p className="text-sm font-semibold text-gray-800">Order history</p><button onClick={() => setOrdersRevision(v => v + 1)} className="text-xs underline">Refresh</button></div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400 shrink-0">Status</span>
             <div className="relative">
@@ -840,8 +859,9 @@ export default function CustomerDetailPage() {
                 <option value="">All</option>
                 <option value="PENDING">Pending</option>
                 <option value="CONFIRMED">Confirmed</option>
-                <option value="PROCESSING">Processing</option>
-                <option value="SHIPPED">Shipped</option>
+                <option value="IN_PROGRESS">In progress</option>
+                <option value="ON_HOLD">On hold</option>
+                <option value="COMPLETED">Completed</option>
                 <option value="DELIVERED">Delivered</option>
                 <option value="CANCELLED">Cancelled</option>
               </select>
@@ -857,6 +877,8 @@ export default function CustomerDetailPage() {
             <IconLoader />
             <span className="text-sm">Loading orders...</span>
           </div>
+        ) : ordersError ? (
+          <p role="alert" className="p-6 text-sm text-red-700">Could not load orders: {ordersError}. Use Refresh to retry.</p>
         ) : orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
             <IconEmptyBox />
@@ -882,11 +904,11 @@ export default function CustomerDetailPage() {
                     className="border-t border-gray-100 hover:bg-white/30 transition-colors"
                   >
                     <td className="px-4 py-3 text-xs font-mono text-gray-700">
-                      {o.orderNumber}
+                      <Link href={`/orders/${o.orderId}`} className="underline underline-offset-2">{o.orderNumber || shortId(o.orderId)}</Link>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                        {o.orderType}
+                        {[...new Set(o.items?.map(item => item.orderType).filter(Boolean) ?? [])].join(" / ") || o.orderType || "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -900,7 +922,11 @@ export default function CustomerDetailPage() {
                       ₹{o.totalAmount?.toLocaleString("en-IN") ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">
-                      {o.paymentMethod}
+                      <p>{payments[o.orderId]?.paymentMethod ?? o.paymentMethod ?? "—"}</p>
+                      <p className="mt-1 font-medium">{paymentsLoading ? "Loading payment..." : paymentErrors[o.orderId] ?? payments[o.orderId]?.status?.replace(/_/g, " ") ?? "Status unavailable"}</p>
+                      {payments[o.orderId]?.amount != null && <p className="mt-1">Recorded amount: {payments[o.orderId].currency ?? "INR"} {payments[o.orderId].amount?.toLocaleString("en-IN")}</p>}
+                      {payments[o.orderId]?.paymentId && <p className="mt-1 break-all">Transaction: {payments[o.orderId].paymentId}</p>}
+                      {payments[o.orderId]?.updatedAt && <p className="mt-1">Updated: {formatDate(payments[o.orderId].updatedAt!)}</p>}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
                       {formatDate(o.orderDate)}

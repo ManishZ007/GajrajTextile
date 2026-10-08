@@ -173,7 +173,7 @@ function EditModal({ variant, onClose, onSaved }: EditModalProps) {
         size: size.trim() || undefined,
         color: color.trim() || undefined,
         price: price ? parseFloat(price) : undefined,
-        stockQuantity: stock !== "" ? parseInt(stock) : undefined,
+
         sku: sku.trim() || undefined,
         status,
       });
@@ -234,13 +234,14 @@ function EditModal({ variant, onClose, onSaved }: EditModalProps) {
               />
             </div>
             <div>
-              <label className={labelCls}>Stock quantity</label>
+              <label className={labelCls}>Stock quantity (edit in Inventory)</label>
               <input
                 type="number"
                 min="0"
                 placeholder="0"
                 value={stock}
-                onChange={(e) => setStock(e.target.value)}
+                readOnly
+                title="Change stock through Inventory"
                 className={inputCls}
               />
             </div>
@@ -313,7 +314,7 @@ function DeleteDialog({ variant, onClose, onDeleted }: DeleteDialogProps) {
       await deleteVariant(variant.variantId);
       onDeleted();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to delete variant");
+      setError(err instanceof Error ? err.message : "Failed to deactivate variant");
     } finally {
       setDeleting(false);
     }
@@ -333,10 +334,10 @@ function DeleteDialog({ variant, onClose, onDeleted }: DeleteDialogProps) {
           </div>
           <div>
             <h2 className="text-sm font-semibold text-gray-800">
-              Delete variant
+              Deactivate variant
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              Are you sure? This will permanently remove this variant
+              This will mark the variant inactive and preserve its stock and order history
               {variant.sku ? (
                 <>
                   {" "}
@@ -369,7 +370,7 @@ function DeleteDialog({ variant, onClose, onDeleted }: DeleteDialogProps) {
               disabled={deleting}
               className="px-4 py-2 text-sm font-medium bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {deleting ? "Deleting..." : "Delete"}
+              {deleting ? "Deactivating..." : "Deactivate"}
             </button>
           </div>
         </div>
@@ -663,7 +664,7 @@ export default function ProductsVariants() {
                           <IconEdit />
                         </button>
                         <button
-                          title="Delete"
+                          title="Deactivate"
                           onClick={() => setDeleteTarget(v)}
                           className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                         >

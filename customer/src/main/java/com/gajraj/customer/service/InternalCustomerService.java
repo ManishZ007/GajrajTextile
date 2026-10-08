@@ -115,9 +115,18 @@ public class InternalCustomerService {
     }
 
     public ResponseEntity<?> getAllCustomers(int page, int size, String search) {
+        return getAllCustomers(page,size,search,null);
+    }
+    public ResponseEntity<?> getAllCustomers(int page,int size,String search,String month) {
         try {
             PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-            Page<Customers> result = (search != null && !search.isBlank())
+            java.time.YearMonth selected = month == null ? null : java.time.YearMonth.parse(month);
+            var current = java.time.YearMonth.now(java.time.ZoneId.of("Asia/Kolkata"));
+            if(selected != null && (selected.isAfter(current) || selected.isBefore(current.minusMonths(5))))
+                return ResponseEntity.badRequest().body(Map.of("error","Choose one of the last six months"));
+            Page<Customers> result = selected != null
+                    ? customerRepo.findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(selected.atDay(1).atStartOfDay(),selected.plusMonths(1).atDay(1).atStartOfDay(),pageRequest)
+                    : (search != null && !search.isBlank())
                     ? customerRepo.searchByUserId(search, pageRequest)
                     : customerRepo.findAll(pageRequest);
 

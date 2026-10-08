@@ -81,12 +81,15 @@ public class AuthService {
 
     // register
     public ResponseEntity<?> register(RegisterRequestDTO request)  {
-        System.out.println(request);
+        // Never log registration passwords.
         try{
             if (request == null || request.getEmail() == null || request.getPasswordHash() == null || request.getRole() == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("email, password and role are required");
             }
 
+            if (request.getPasswordHash().length()<8 || request.getPasswordHash().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>72)
+                return ResponseEntity.badRequest().body("Password must have at least 8 characters and at most 72 UTF-8 bytes");
+            if (request.getPhoneNumber()!=null && request.getPhoneNumber().isBlank()) request.setPhoneNumber(null);
             if (request.getRole() == Users.Role.WORKER) {
                 WorkerRegisterDTO w = request.getWorker();
                 if (w == null || w.getWorkExperience() == null || w.getGender() == null
@@ -113,7 +116,6 @@ public class AuthService {
             try {
                 switch (saveUsers.getRole()) {
                     case CUSTOMER:
-                        safeSendEmail(() -> notification.sendRegistrationEmailToCustomer(saveUsers.getEmail(), saveUsers.getFullName()));
                         commonResponse = customer.saveNewUser(payload);
                         break;
                     case WORKER:
@@ -122,15 +124,12 @@ public class AuthService {
                         payload.setGender(w.getGender());
                         payload.setDateOfBirth(w.getDateOfBirth());
                         payload.setManagerId(w.getManagerId());
-                        safeSendEmail(() -> notification.sendRegistrationEmailToWorker(saveUsers.getEmail(), saveUsers.getFullName()));
                         commonResponse = worker.savaNewUser(payload);
                         break;
                     case MANAGER:
-                        safeSendEmail(() -> notification.sendRegistrationEmailToManager(saveUsers.getEmail(), saveUsers.getFullName()));
                         commonResponse = manager.saveNewUser(payload);
                         break;
                     case OWNER:
-                        safeSendEmail(() -> notification.sendRegistrationEmailToManager(saveUsers.getEmail(), saveUsers.getFullName()));
                         commonResponse = ResponseEntity.ok(Map.of("message", "Owner created"));
                         break;
                     default:
@@ -148,6 +147,8 @@ public class AuthService {
                 userRepo.delete(saveUsers);
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("downstream service did not accept the new user");
             }
+
+            safeSendEmail(() -> notification.sendRegistrationEmail(saveUsers.getEmail(), saveUsers.getFullName(), saveUsers.getRole().toString()));
 
             UserResponseDTO response = new UserResponseDTO(
                     saveUsers.getUser_id(), saveUsers.getFullName(), saveUsers.getEmail(), saveUsers.getPhoneNumber(), saveUsers.getRole().name(), saveUsers.getCreatedAt(), saveUsers.getUpdatedAt(), commonResponse.getBody()
@@ -174,8 +175,6 @@ public class AuthService {
     //login
     public  ResponseEntity<?> login (String email, String password) {
 
-        LoginResponseDTO loginResponse = new LoginResponseDTO();
-
         try{
             Users user = userRepo.findByEmail(email);
 
@@ -193,29 +192,11 @@ public class AuthService {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
             }
 
-            RefreshToken isRefreshTokenAvailable = refreshTokenRepo.findByUserId(user.getUser_id());
-
-            if(isRefreshTokenAvailable == null) {
-                String accessToken =  jwtService.generateToken(user.getUser_id().toString(), user.getRole().name()); // 15 min
-                RefreshToken refresh_token = refreshTokenService.createRefreshToken(user); // 10 days
-
-
-                loginResponse.setAccess_token(accessToken);
-                loginResponse.setRefresh_token(refresh_token.getRefreshToken());
-
-            }else {
-                String updatedAccessToken = jwtService.generateToken(user.getUser_id().toString(), user.getRole().name());
-                String updatedRefreshToken = refreshTokenService.updateRefreshToken(user.getUser_id());
-
-
-                loginResponse.setAccess_token(updatedAccessToken);
-                loginResponse.setRefresh_token(updatedRefreshToken);
-
-
+            if(user.getRole()==Users.Role.MANAGER) {
+                var accessCheck=checkAdminAccount(user);
+                if(accessCheck!=null) return accessCheck;
             }
-            loginResponse.setUser_id(user.getUser_id().toString());
-            loginResponse.setExpires_in(expiration);
-            return ResponseEntity.ok(loginResponse);
+            return ResponseEntity.ok(issueLoginTokens(user));
 
         }catch (Exception e) {
             e.printStackTrace();
@@ -224,6 +205,19 @@ public class AuthService {
 
     }
 
+
+    // Shared token contract for password and customer OTP login.
+    public LoginResponseDTO issueLoginTokens(Users user) {
+        LoginResponseDTO response = new LoginResponseDTO();
+        RefreshToken existing = refreshTokenRepo.findByUserId(user.getUser_id());
+        response.setAccess_token(jwtService.generateToken(user.getUser_id().toString(), user.getRole().name()));
+        response.setRefresh_token(existing == null
+                ? refreshTokenService.createRefreshToken(user).getRefreshToken()
+                : refreshTokenService.updateRefreshToken(user.getUser_id()));
+        response.setUser_id(user.getUser_id().toString());
+        response.setExpires_in(expiration);
+        return response;
+    }
 
 //    manager login
     public ResponseEntity<?> adminLogin(String email, String password) {
@@ -250,6 +244,9 @@ public class AuthService {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body("Access denied. Only managers and owners can login here.");
             }
+
+            var accessCheck=checkAdminAccount(user);
+            if(accessCheck!=null) return accessCheck;
 
             RefreshToken isRefreshTokenAvailable = refreshTokenRepo.findByUserId(user.getUser_id());
 
@@ -365,6 +362,8 @@ public class AuthService {
 
             if(refreshTokenService.verifyExpiration(token)) {
                 Users user = token.getUser();
+                var accessCheck=checkAdminAccount(user);
+                if(accessCheck!=null) return accessCheck;
                 String new_access_token = jwtService.generateToken(user.getUser_id().toString(), user.getRole().name());
 
                 ResponseCookie accessCookie = ResponseCookie.from("access_token")
@@ -437,6 +436,9 @@ public class AuthService {
                     workerPayload.setWorker_profile_image(updateUserRequest.getWorker().getWorker_profile_image());
                     workerPayload.setWorker_experience(updateUserRequest.getWorker().getWorker_experience());
                     updatedCommonResponse = worker.updateWorker(service_call_id, workerPayload);
+                } else if ("MANAGER".equals(userType)) {
+                    // auth-only update; manager service profile update is optional / best-effort
+                    updatedCommonResponse = ResponseEntity.ok(java.util.Map.of("message", "manager auth info updated"));
                 } else {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("unsupported userType: " + userType);
                 }
@@ -488,8 +490,17 @@ public class AuthService {
                                     .body("worker service rejected the delete");
                         }
                         break;
-                    case CUSTOMER:
                     case MANAGER:
+                        var servlet=((org.springframework.web.context.request.ServletRequestAttributes)
+                            org.springframework.web.context.request.RequestContextHolder.currentRequestAttributes()).getRequest();
+                        String authorization=servlet.getHeader("Authorization");
+                        if(authorization==null && servlet.getCookies()!=null) for(var cookie:servlet.getCookies())
+                            if("access_token".equals(cookie.getName())) authorization="Bearer "+cookie.getValue();
+                        var deleted=manager.deleteManager(user_id.toString(),authorization);
+                        if(deleted==null || !deleted.getStatusCode().is2xxSuccessful())
+                            return ResponseEntity.status(502).body("Manager service rejected deletion");
+                        break;
+                    case CUSTOMER:
                     case OWNER:
                         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
                                 .body("delete not implemented for role: " + role);
@@ -517,6 +528,38 @@ public class AuthService {
         }
     }
 
+
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> changePassword(UUID userId, String newPassword) {
+        try {
+            Users user = userRepo.findById(userId).orElse(null);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Manager not found");
+            }
+            user.setPasswordHash(encoder.encode(newPassword));
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepo.save(user);
+            refreshTokenRepo.deleteForPasswordReset(userId);
+            return ResponseEntity.ok(Map.of("message", "Password updated successfully"));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to update password");
+        }
+    }
+
+    public ResponseEntity<?> listByRole(String roleName) {
+        try {
+            Users.Role role = Users.Role.valueOf(roleName);
+            java.util.List<Users> users = userRepo.findByRoleOrderByCreatedAtDesc(role);
+            java.util.List<UserResponseDTO> result = users.stream()
+                    .map(u -> new UserResponseDTO(u.getUser_id(), u.getFullName(), u.getEmail(),
+                            u.getPhoneNumber(), u.getRole().name(), u.getCreatedAt(), u.getUpdatedAt(), null))
+                    .toList();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("error: " + e.getMessage());
+        }
+    }
 
     public ResponseEntity<?> userInfo(String user_id){
         if (user_id == null || user_id.isBlank()) {
@@ -555,5 +598,21 @@ public class AuthService {
                     "message", "internal server error " + e.getMessage()
             ));
         }
+    }
+
+    private ResponseEntity<?> checkAdminAccount(Users user) {
+        if(user.getRole()!=Users.Role.MANAGER && user.getRole()!=Users.Role.OWNER)
+            return ResponseEntity.status(403).body(Map.of("message","Admin access denied"));
+        if(user.getRole()==Users.Role.MANAGER) {
+            try {
+                var result=manager.accountStatus(user.getUser_id().toString(),
+                    "Bearer "+jwtService.generateToken(user.getUser_id().toString(),user.getRole().name()));
+                if(!Boolean.TRUE.equals(result.get("enabled")))
+                    return ResponseEntity.status(403).body(Map.of("message","Manager account is disabled"));
+            } catch(Exception e) {
+                return ResponseEntity.status(503).body(Map.of("message","Manager account status unavailable"));
+            }
+        }
+        return null;
     }
 }

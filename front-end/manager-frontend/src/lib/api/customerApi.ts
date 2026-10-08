@@ -1,7 +1,7 @@
 import { apiFetch } from "./apiFetch";
+import { fetchAllOrders } from "./orderApi";
 
 const CUSTOMER_SERVICE = "http://localhost:8082";
-const ORDER_SERVICE = "http://localhost:8083";
 
 // ── Customers ──────────────────────────────────────────────────────────────────
 
@@ -86,10 +86,5 @@ export function fetchOrdersByUser(params: {
   size?: number;
   status?: string;
 }) {
-  const q = new URLSearchParams();
-  q.set("userId", params.userId);
-  if (params.page !== undefined) q.set("page", String(params.page));
-  if (params.size !== undefined) q.set("size", String(params.size));
-  if (params.status) q.set("status", params.status);
-  return apiFetch(`${ORDER_SERVICE}/order/all?${q}`);
+  return fetchAllOrders(params);
 }

@@ -42,9 +42,15 @@ public class Security {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         httpSecurity.authorizeHttpRequests(registry -> registry
-                .requestMatchers("/order/my-orders").authenticated()
-                .requestMatchers("/order/**").permitAll()
+                .requestMatchers("/orders/create", "/orders/cancel/**", "/orders/my-orders").authenticated()
+                .requestMatchers("/orders/status/**", "/orders/take/**", "/manager/orders/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
+                .requestMatchers("/orders/**").permitAll()
+                .requestMatchers("/manager/profile/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
+                .requestMatchers("/manager/**").authenticated()
+                .requestMatchers("/internal/manager-stats/**").hasRole("OWNER")
                 .requestMatchers("/internal/**").permitAll()
+                .requestMatchers("/dealers/**").permitAll()
+                .requestMatchers("/dealer-orders/**").permitAll()
                 .anyRequest().authenticated()
         ).addFilterBefore(new JWTAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
 

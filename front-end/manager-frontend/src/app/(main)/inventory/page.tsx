@@ -56,13 +56,14 @@ interface Category {
 }
 
 interface PagedResponse {
+  totalVariants: number; inStockCount: number; lowStockCount: number; outOfStockCount: number; totalStockUnits: number;
   content: InventoryVariant[];
   totalElements: number;
   totalPages: number;
 }
 
 const PAGE_SIZE = 20;
-const CHANGED_BY = "MANAGER";
+
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -159,20 +160,20 @@ function UpdateModal({
   async function handleSave() {
     setError("");
     if (!reason.trim()) { setError("Reason is required"); return; }
-    if (mode === "set" && (newQty === "" || isNaN(Number(newQty)) || Number(newQty) < 0)) {
+    if (mode === "set" && (newQty === "" || !Number.isInteger(Number(newQty)) || Number(newQty) < 0)) {
       setError("Enter a valid quantity");
       return;
     }
-    if (mode === "adjust" && adjustAmt === 0) {
+    if (mode === "adjust" && (!Number.isInteger(adjustAmt) || adjustAmt === 0)) {
       setError("Adjustment amount cannot be zero");
       return;
     }
     setSaving(true);
     try {
       await updateStock(item.variantId, {
-        ...(mode === "set" ? { newQuantity: Number(newQty) } : { adjustmentAmount: adjustAmt }),
+        ...(mode === "set" ? { newQuantity: Number(newQty), expectedQuantity: item.stockQuantity } : { adjustmentAmount: adjustAmt }),
         reason: reason.trim(),
-        changedBy: CHANGED_BY,
+
       });
       onSaved();
       onClose();
@@ -333,6 +334,7 @@ function HistoryPanel({
 }) {
   const router = useRouter();
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  const [historyError, setHistoryError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -341,7 +343,7 @@ function HistoryPanel({
         const list = Array.isArray(data) ? data : (data.content ?? []);
         setEntries(list);
       })
-      .catch(() => {})
+      .catch(() => setHistoryError("History unavailable. Close and reopen to retry."))
       .finally(() => setLoading(false));
   }, [item.variantId]);
 
@@ -366,7 +368,7 @@ function HistoryPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
+          {historyError ? <p role="alert" className="p-4 text-red-600">{historyError}</p> : loading ? (
             <div className="flex items-center justify-center py-12 gap-2 text-gray-400">
               <IconLoader /><span className="text-sm">Loading...</span>
             </div>
@@ -447,62 +449,26 @@ export default function InventoryPage() {
 
   useEffect(() => { setPage(0); }, [categoryId, sortBy, stockLevelFilter]);
 
-  // Fetch table data
+  const [revision, setRevision] = useState(0);
+  const [loadError, setLoadError] = useState("");
   useEffect(() => {
-    setLoading(true);
-    fetchInventory({
-      page,
-      size: PAGE_SIZE,
-      ...(search ? { search } : {}),
-      ...(categoryId ? { categoryId } : {}),
-      ...(sortBy ? { sortBy } : {}),
-      ...(stockLevelFilter ? { stockLevel: stockLevelFilter } : {}),
-    })
+    let active = true;
+    setLoading(true); setLoadError("");
+    fetchInventory({ page, size: PAGE_SIZE, search, categoryId, sortBy, stockLevel: stockLevelFilter })
       .then((data: PagedResponse) => {
-        setItems(data.content ?? []);
-        setTotalElements(data.totalElements ?? 0);
-        setTotalPages(data.totalPages ?? 0);
+        if (!active) return;
+        setItems(data.content); setTotalElements(data.totalElements); setTotalPages(data.totalPages);
+        setStats({ total: data.totalVariants, inStock: data.inStockCount - data.lowStockCount,
+          lowStock: data.lowStockCount, outOfStock: data.outOfStockCount, totalUnits: data.totalStockUnits });
       })
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-  }, [page, search, categoryId, sortBy, stockLevelFilter]);
-
-  // Fetch summary stats + categories
+      .catch(() => { if (active) setLoadError("Inventory unavailable. Please retry."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [page, search, categoryId, sortBy, stockLevelFilter, revision]);
   useEffect(() => {
-    fetchInventory({ size: 1000 })
-      .then((data: PagedResponse) => {
-        const all = data.content ?? [];
-        setStats({
-          total: all.length,
-          inStock: all.filter((i) => i.stockLevel === "GOOD").length,
-          lowStock: all.filter((i) => i.stockLevel === "LOW").length,
-          outOfStock: all.filter((i) => i.stockLevel === "OUT_OF_STOCK").length,
-          totalUnits: all.reduce((s, i) => s + i.stockQuantity, 0),
-        });
-      })
-      .catch(() => {});
-    fetchCategories()
-      .then((data) => setCategories(Array.isArray(data) ? data : (data.content ?? [])))
-      .catch(() => {});
+    fetchCategories().then(data => setCategories(Array.isArray(data) ? data : data.content ?? [])).catch(() => {});
   }, []);
-
-  function refetch() {
-    setLoading(true);
-    fetchInventory({
-      page, size: PAGE_SIZE,
-      ...(search ? { search } : {}),
-      ...(categoryId ? { categoryId } : {}),
-      ...(sortBy ? { sortBy } : {}),
-      ...(stockLevelFilter ? { stockLevel: stockLevelFilter } : {}),
-    })
-      .then((data: PagedResponse) => {
-        setItems(data.content ?? []);
-        setTotalElements(data.totalElements ?? 0);
-        setTotalPages(data.totalPages ?? 0);
-      })
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-  }
+  function refetch() { setRevision(value => value + 1); }
 
   const start = totalElements === 0 ? 0 : page * PAGE_SIZE + 1;
   const end = Math.min(page * PAGE_SIZE + items.length, totalElements);
@@ -525,35 +491,35 @@ export default function InventoryPage() {
       <div className="flex items-center gap-3">
         <StatCard
           label="Total variants"
-          value={stats.total}
+          value={loading || loadError ? "—" : stats.total}
           dot="pkg"
           active={stockLevelFilter === ""}
           onClick={() => setStockLevelFilter("")}
         />
         <StatCard
-          label="In stock"
-          value={stats.inStock}
+          label="Good stock"
+          value={loading || loadError ? "—" : stats.inStock}
           dot="green"
           active={stockLevelFilter === "GOOD"}
           onClick={() => setStockLevelFilter((p) => (p === "GOOD" ? "" : "GOOD"))}
         />
         <StatCard
           label="Low stock"
-          value={stats.lowStock}
+          value={loading || loadError ? "—" : stats.lowStock}
           dot="amber"
           active={stockLevelFilter === "LOW"}
           onClick={() => setStockLevelFilter((p) => (p === "LOW" ? "" : "LOW"))}
         />
         <StatCard
           label="Out of stock"
-          value={stats.outOfStock}
+          value={loading || loadError ? "—" : stats.outOfStock}
           dot="red"
           active={stockLevelFilter === "OUT_OF_STOCK"}
           onClick={() => setStockLevelFilter((p) => (p === "OUT_OF_STOCK" ? "" : "OUT_OF_STOCK"))}
         />
         <StatCard
           label="Total units"
-          value={stats.totalUnits.toLocaleString("en-IN")}
+          value={loading || loadError ? "—" : stats.totalUnits.toLocaleString("en-IN")}
           active={false}
           onClick={() => {}}
         />
@@ -612,7 +578,7 @@ export default function InventoryPage() {
 
       {/* ── Table card ──────────────────────────────────────────────────────── */}
       <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-2xl overflow-hidden">
-        {loading ? (
+        {loadError ? <p role="alert" className="p-6 text-red-600">{loadError} <button className="underline" onClick={refetch}>Retry</button></p> : loading ? (
           <div className="flex items-center justify-center py-16 gap-3 text-gray-400">
             <IconLoader /><span className="text-sm">Loading inventory...</span>
           </div>

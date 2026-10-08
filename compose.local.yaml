@@ -1,0 +1,357 @@
+name: gajraj-local
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: gajraj
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env.docker}
+    ports: ["127.0.0.1:15673:15672"]
+    volumes: ["rabbitmq_data:/var/lib/rabbitmq"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  authentication:
+    build: ./authentication
+    ports: ["127.0.0.1:8081:8081"]
+    env_file:
+      - path: ./authentication/.env
+        required: false
+    environment:
+      SERVER_PORT: "8081"
+      SPRING_PROFILES_ACTIVE: "docker"
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/gajraj_paithani_auth"
+      SPRING_DATASOURCE_USERNAME: "postgres"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
+      SPRING_APPLICATION_JSON: '{"eureka":{"client":{"serviceUrl":{"defaultZone":"http://registry:8761/eureka/"}}}}'
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_RABBITMQ_HOST: "rabbitmq"
+      SPRING_RABBITMQ_USERNAME: "gajraj"
+      SPRING_RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD}"
+      REDIS_HOST: "redis"
+      REDIS_PASSWORD: ""
+      CUSTOMER_FRONTEND_URL: "http://localhost:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8081'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      postgres: {condition: service_healthy}
+      server_registry: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+  customer:
+    build: ./customer
+    ports: ["127.0.0.1:8082:8082"]
+    env_file:
+      - path: ./customer/.env
+        required: false
+    environment:
+      SERVER_PORT: "8082"
+      SPRING_PROFILES_ACTIVE: "docker"
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/gajraj_paithani_customers"
+      SPRING_DATASOURCE_USERNAME: "postgres"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
+      SPRING_APPLICATION_JSON: '{"eureka":{"client":{"serviceUrl":{"defaultZone":"http://registry:8761/eureka/"}}}}'
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_RABBITMQ_HOST: "rabbitmq"
+      SPRING_RABBITMQ_USERNAME: "gajraj"
+      SPRING_RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD}"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8082'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      postgres: {condition: service_healthy}
+      server_registry: {condition: service_healthy}
+  order:
+    build: ./order
+    ports: ["127.0.0.1:8083:8083"]
+    env_file:
+      - path: ./order/.env
+        required: false
+    environment:
+      SERVER_PORT: "8083"
+      SPRING_PROFILES_ACTIVE: "docker"
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/gajraj_paithani_orders"
+      SPRING_DATASOURCE_USERNAME: "postgres"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
+      SPRING_APPLICATION_JSON: '{"eureka":{"client":{"serviceUrl":{"defaultZone":"http://registry:8761/eureka/"}}}}'
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_RABBITMQ_HOST: "rabbitmq"
+      SPRING_RABBITMQ_USERNAME: "gajraj"
+      SPRING_RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD}"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8083'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      postgres: {condition: service_healthy}
+      server_registry: {condition: service_healthy}
+  worker:
+    build: ./worker
+    ports: ["127.0.0.1:8084:8084"]
+    env_file:
+      - path: ./worker/.env
+        required: false
+    environment:
+      SERVER_PORT: "8084"
+      SPRING_PROFILES_ACTIVE: "docker"
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/gajraj_paithani_workers"
+      SPRING_DATASOURCE_USERNAME: "postgres"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
+      SPRING_APPLICATION_JSON: '{"eureka":{"client":{"serviceUrl":{"defaultZone":"http://registry:8761/eureka/"}}}}'
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_RABBITMQ_HOST: "rabbitmq"
+      SPRING_RABBITMQ_USERNAME: "gajraj"
+      SPRING_RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD}"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8084'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      postgres: {condition: service_healthy}
+      server_registry: {condition: service_healthy}
+  manager:
+    build: ./manager
+    ports: ["127.0.0.1:8085:8085"]
+    env_file:
+      - path: ./manager/.env
+        required: false
+    environment:
+      SERVER_PORT: "8085"
+      SPRING_PROFILES_ACTIVE: "docker"
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/gajraj_paithani_manager"
+      SPRING_DATASOURCE_USERNAME: "postgres"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
+      SPRING_APPLICATION_JSON: '{"eureka":{"client":{"serviceUrl":{"defaultZone":"http://registry:8761/eureka/"}}}}'
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_RABBITMQ_HOST: "rabbitmq"
+      SPRING_RABBITMQ_USERNAME: "gajraj"
+      SPRING_RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD}"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8085'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      postgres: {condition: service_healthy}
+      server_registry: {condition: service_healthy}
+  owner:
+    build: ./owner
+    ports: ["127.0.0.1:8086:8086"]
+    env_file:
+      - path: ./owner/.env
+        required: false
+    environment:
+      SERVER_PORT: "8086"
+      SPRING_PROFILES_ACTIVE: "docker"
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/gajraj_paithani_owner"
+      SPRING_DATASOURCE_USERNAME: "postgres"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
+      SPRING_APPLICATION_JSON: '{"eureka":{"client":{"serviceUrl":{"defaultZone":"http://registry:8761/eureka/"}}}}'
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_RABBITMQ_HOST: "rabbitmq"
+      SPRING_RABBITMQ_USERNAME: "gajraj"
+      SPRING_RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD}"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8086'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      postgres: {condition: service_healthy}
+      server_registry: {condition: service_healthy}
+  product:
+    build: ./product
+    ports: ["127.0.0.1:8087:8087"]
+    env_file:
+      - path: ./product/.env
+        required: false
+    environment:
+      SERVER_PORT: "8087"
+      SPRING_PROFILES_ACTIVE: "docker"
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/gajraj_paithani_products"
+      SPRING_DATASOURCE_USERNAME: "postgres"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
+      SPRING_APPLICATION_JSON: '{"eureka":{"client":{"serviceUrl":{"defaultZone":"http://registry:8761/eureka/"}}}}'
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_RABBITMQ_HOST: "rabbitmq"
+      SPRING_RABBITMQ_USERNAME: "gajraj"
+      SPRING_RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8087'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      postgres: {condition: service_healthy}
+      server_registry: {condition: service_healthy}
+  payment:
+    build: ./payment
+    ports: ["127.0.0.1:8088:8088"]
+    env_file:
+      - path: ./payment/.env
+        required: false
+    environment:
+      SERVER_PORT: "8088"
+      SPRING_PROFILES_ACTIVE: "docker"
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/gajraj_paithani_payments"
+      SPRING_DATASOURCE_USERNAME: "postgres"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
+      SPRING_APPLICATION_JSON: '{"eureka":{"client":{"serviceUrl":{"defaultZone":"http://registry:8761/eureka/"}}}}'
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_RABBITMQ_HOST: "rabbitmq"
+      SPRING_RABBITMQ_USERNAME: "gajraj"
+      SPRING_RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD}"
+      PAYMENT_DB_URL: "jdbc:postgresql://postgres:5432/gajraj_paithani_payments"
+      PAYMENT_DB_USERNAME: "postgres"
+      PAYMENT_DB_PASSWORD: "${POSTGRES_PASSWORD}"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8088'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      postgres: {condition: service_healthy}
+      server_registry: {condition: service_healthy}
+  shipping:
+    build: ./shipping
+    ports: ["127.0.0.1:8089:8089"]
+    env_file:
+      - path: ./shipping/.env
+        required: false
+    environment:
+      SERVER_PORT: "8089"
+      SPRING_PROFILES_ACTIVE: "docker"
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/gajraj_paithani_shipping"
+      SPRING_DATASOURCE_USERNAME: "postgres"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD}"
+      SPRING_APPLICATION_JSON: '{"eureka":{"client":{"serviceUrl":{"defaultZone":"http://registry:8761/eureka/"}}}}'
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_RABBITMQ_HOST: "rabbitmq"
+      SPRING_RABBITMQ_USERNAME: "gajraj"
+      SPRING_RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD}"
+      ORDER_SERVICE_URL: "http://order:8083"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8089'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      postgres: {condition: service_healthy}
+      server_registry: {condition: service_healthy}
+  server_registry:
+    build: ./server_registry
+    networks:
+      default:
+        aliases: [registry]
+    ports: ["127.0.0.1:8761:8761"]
+    env_file:
+      - path: ./server_registry/.env
+        required: false
+    environment:
+      SERVER_PORT: "8761"
+      SPRING_PROFILES_ACTIVE: "docker"
+      SPRING_JPA_SHOW_SQL: "false"
+      EUREKA_INSTANCE_HOSTNAME: "registry"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8761'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+  notification:
+    build: ./notification
+    env_file:
+      - path: ./notification/.env
+        required: false
+    environment:
+      PORT: "4000"
+      RABBITMQ_URL: amqp://gajraj:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      SITE_URL: http://localhost:3000
+    depends_on:
+      rabbitmq: {condition: service_healthy}
+  customer-frontend:
+    build:
+      context: ./front-end/customer-frontend
+      target: development
+    ports: ["127.0.0.1:3000:3000"]
+    env_file:
+      - path: ./front-end/customer-frontend/.env.local
+        required: false
+    environment:
+      AUTH_TRUST_HOST: "true"
+      AUTH_SECRET: "${AUTH_SECRET}"
+      AUTH_URL: http://localhost:3000
+      AUTH_SERVICE_URL: http://authentication:8081
+      DOCKER_INTERNAL_NETWORK: "true"
+    depends_on:
+      authentication: {condition: service_healthy}
+  manager-frontend:
+    build:
+      context: ./front-end/manager-frontend
+      target: development
+    ports: ["127.0.0.1:3001:3000"]
+    env_file:
+      - path: ./front-end/manager-frontend/.env.local
+        required: false
+    environment:
+      AUTH_TRUST_HOST: "true"
+      AUTH_SECRET: "${AUTH_SECRET}"
+      AUTH_URL: http://localhost:3001
+      AUTH_SERVICE_URL: http://authentication:8081
+      DOCKER_INTERNAL_NETWORK: "true"
+    depends_on:
+      authentication: {condition: service_healthy}
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:

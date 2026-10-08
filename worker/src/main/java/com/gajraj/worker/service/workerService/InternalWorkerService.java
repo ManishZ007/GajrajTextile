@@ -33,6 +33,7 @@ public class InternalWorkerService {
             System.out.println(saveNewUserFromAuth);
             Workers newUserData = new Workers();
 
+            newUserData.setCreatedByManagerId(saveNewUserFromAuth.getManagerId());
             newUserData.setUserId(saveNewUserFromAuth.getUser_id());
             newUserData.setWorkerCode((long) (100000 + Math.random() * 900000));
             newUserData.setWorkExperience(saveNewUserFromAuth.getWorkExperience());

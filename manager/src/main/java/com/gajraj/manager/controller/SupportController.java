@@ -4,6 +4,7 @@ import com.gajraj.manager.dto.supportDTO.SupportCaseCreateDTO;
 import com.gajraj.manager.service.managerService.SupportCaseService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -32,18 +33,19 @@ public class SupportController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<?> createCase(@RequestBody SupportCaseCreateDTO dto) {
+    public ResponseEntity<?> createCase(@RequestBody SupportCaseCreateDTO dto, Authentication auth) {
+        dto.setHandledBy(auth.getName());
         return supportCaseService.createCase(dto);
     }
 
     @PutMapping("/update/{id}")
     public ResponseEntity<?> updateCase(
             @PathVariable UUID id,
-            @RequestBody Map<String, String> body) {
+            @RequestBody Map<String, String> body, Authentication auth) {
         return supportCaseService.updateCase(
                 id,
                 body.get("status"),
-                body.get("handledBy"),
+                auth.getName(),
                 body.get("resolutionNote")
         );
     }

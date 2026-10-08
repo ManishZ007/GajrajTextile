@@ -3,6 +3,7 @@ dotenv.config();
 
 export default {
   port: process.env.PORT || 4000,
+  siteUrl: (process.env.SITE_URL || "https://gajrajpaithani.com").replace(/\/+$/, ""),
   rabbitmq: {
     url: process.env.RABBITMQ_URL || "amqp://localhost",
     exchange: process.env.RABBITMQ_EXCHANGE || "notification_exchange",

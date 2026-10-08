@@ -22,6 +22,7 @@ public class PriceChangeResponseDTO {
     private String updatedBy;
     private String reason;
     private Boolean ownerApproval;
+    private Boolean priceApplied;
     private String approvalStatus;
     private UUID ownerReportId;
     private LocalDateTime updatedAt;

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 export interface Variant {
+  variantId?: string;
   size: string;
   price: string;
   color: string;
@@ -267,6 +268,7 @@ export const useProductStore = create<ProductState>((set) => ({
       description: dto.description ?? "",
       status: dto.status ?? "ACTIVE",
       variants: (dto.variants ?? []).map((v: any) => ({
+        variantId: v.variantId,
         size: v.size ?? "",
         color: v.color ?? "",
         price: String(v.price ?? ""),

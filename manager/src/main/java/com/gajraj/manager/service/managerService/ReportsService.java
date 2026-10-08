@@ -23,6 +23,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class ReportsService {
+    @Autowired private com.gajraj.manager.repo.ProductPriceUpdatedRepo priceRequests;
+    @Autowired private PriceChangeService priceChanges;
+
 
     @Autowired
     private OwnerReportsRepo ownerReportsRepo;
@@ -103,10 +106,6 @@ public class ReportsService {
                         .body(Map.of("error", "Report not found"));
             }
             OwnerReports report = existing.get();
-            if (Boolean.FALSE.equals(report.getIsRead())) {
-                report.setIsRead(true);
-                report = ownerReportsRepo.save(report);
-            }
             return ResponseEntity.ok(mapToDTO(report));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -220,6 +219,8 @@ public class ReportsService {
     }
 
     public ResponseEntity<?> approveReport(UUID reportId, boolean approved) {
+        var linked=priceRequests.findByOwnerReport_Id(reportId);
+        if(linked.isPresent()) return priceChanges.approvePriceChange(linked.get().getId(),approved);
         try {
             Optional<OwnerReports> existing = ownerReportsRepo.findById(reportId);
             if (existing.isEmpty()) {

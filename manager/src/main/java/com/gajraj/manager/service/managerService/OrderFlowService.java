@@ -26,10 +26,21 @@ public class OrderFlowService {
     @Autowired
     private ManagerOrderFlowRepo managerOrderFlowRepo;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
     // ─── Internal: called by Order Service when order is confirmed ───────────
 
+    @Transactional
     public ResponseEntity<?> createOrderFlow(Map<String, String> request) {
         try {
+            jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+                try (var statement = connection.prepareStatement("select pg_advisory_xact_lock(hashtext(?))")) {
+                    statement.setString(1, "order-flow:" + request.get("orderId")); statement.execute();
+                } return null;
+            });
+            var existing = managerOrderFlowRepo.findByOrderId(request.get("orderId"));
+            if (existing.isPresent()) return ResponseEntity.ok(mapToDTO(existing.get()));
             ManagerOrderFlow flow = new ManagerOrderFlow();
             flow.setOrderId(request.get("orderId"));
             flow.setProductStstus(ManagerOrderFlow.ProductStatus.NOT_STARTED);
@@ -82,7 +93,7 @@ public class OrderFlowService {
             if (productStatus != null && !productStatus.isBlank()) {
                 try {
                     ManagerOrderFlow.ProductStatus ps = ManagerOrderFlow.ProductStatus.valueOf(productStatus.toUpperCase());
-                    spec = spec.and((root, query, cb) -> cb.equal(root.get("productStstus"), ps));
+                    spec = spec.and((root, query, cb) -> cb.equal(root.get("productStatus"), ps));
                 } catch (IllegalArgumentException e) {
                     return ResponseEntity.badRequest().body(Map.of("error", "Invalid productStatus: " + productStatus));
                 }

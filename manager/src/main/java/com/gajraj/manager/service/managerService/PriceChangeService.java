@@ -27,6 +27,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class PriceChangeService {
+    @Autowired private com.gajraj.manager.feign.ProductPriceClient products;
+    @org.springframework.beans.factory.annotation.Value("${PRODUCT_PRICE_TOKEN:}") private String priceToken;
+
 
     @Autowired
     private ProductPriceUpdatedRepo productPriceUpdatedRepo;
@@ -134,35 +137,28 @@ public class PriceChangeService {
 
     @Transactional
     public ResponseEntity<?> approvePriceChange(UUID priceChangeId, boolean approved) {
-        try {
-            Optional<ProductPriceUpdates> existing = productPriceUpdatedRepo.findById(priceChangeId);
-            if (existing.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("error", "Price change not found"));
+        var priceChange = productPriceUpdatedRepo.lockForApproval(priceChangeId).orElseThrow(() ->
+            new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Price change not found"));
+        if (Boolean.FALSE.equals(priceChange.getOwnerApproval()) || (Boolean.TRUE.equals(priceChange.getOwnerApproval()) && !approved))
+            return ResponseEntity.badRequest().body(Map.of("error", "This request has already been reviewed"));
+        if (approved) {
+            if (priceToken.isBlank()) return ResponseEntity.status(503).body(Map.of("error", "Product price integration is not configured"));
+            try {
+                var result=products.apply(priceChangeId,priceToken,new com.gajraj.manager.feign.ProductPriceClient.Change(
+                    UUID.fromString(priceChange.getProductId()),priceChange.getOldPrice(),priceChange.getNewPrice()));
+                if(result==null || !Boolean.TRUE.equals(result.get("applied"))) return ResponseEntity.status(503).body(Map.of("error","Product price update was not confirmed. Retry approval."));
+            } catch (feign.FeignException e) {
+                return ResponseEntity.status(e.status()==409 ? 409 : 503).body(Map.of("error",e.status()==409
+                    ? "Product price has changed. Submit a new request with the current price."
+                    : "Product price update failed. Retry approval."));
             }
-
-            ProductPriceUpdates priceChange = existing.get();
-
-            if (priceChange.getOwnerApproval() != null) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "This price change has already been reviewed"));
-            }
-
-            priceChange.setOwnerApproval(approved);
-
-            if (priceChange.getOwnerReport() != null) {
-                OwnerReports report = priceChange.getOwnerReport();
-                report.setApprove(approved);
-                report.setIsRead(true);
-                ownerReportsRepo.save(report);
-            }
-
-            ProductPriceUpdates saved = productPriceUpdatedRepo.save(priceChange);
-            return ResponseEntity.ok(mapToDTO(saved));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to approve price change: " + e.getMessage()));
         }
+        priceChange.setOwnerApproval(approved);
+        priceChange.setPriceApplied(approved);
+        if(priceChange.getOwnerReport()!=null) {
+            var report=priceChange.getOwnerReport();report.setApprove(approved);report.setIsRead(true);ownerReportsRepo.save(report);
+        }
+        return ResponseEntity.ok(mapToDTO(productPriceUpdatedRepo.save(priceChange)));
     }
 
     @Transactional
@@ -220,6 +216,7 @@ public class PriceChangeService {
         dto.setUpdatedBy(p.getUpdatedBy());
         dto.setReason(p.getReason());
         dto.setOwnerApproval(p.getOwnerApproval());
+        dto.setPriceApplied(Boolean.TRUE.equals(p.getPriceApplied()));
 
         if (p.getOwnerApproval() == null) {
             dto.setApprovalStatus("PENDING");

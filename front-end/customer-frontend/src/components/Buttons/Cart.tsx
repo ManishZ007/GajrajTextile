@@ -34,7 +34,7 @@ export const CartButton = ({
       transition={{ type: 'spring', stiffness: 400, damping: 20 }}
       className="relative flex items-center justify-center cursor-pointer"
       style={{
-        fontFamily: 'Switzer', fontWeight: 500,
+        fontFamily: 'Clamp', fontWeight: 500,
       }}
     >
       <motion.div

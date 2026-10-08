@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.Map;
 
-@FeignClient("MANAGER")
+@FeignClient(name="MANAGER", configuration=ManagerCredentials.class)
 public interface ManagerServiceClient {
 
     @PostMapping("/internal/order-flow/create")

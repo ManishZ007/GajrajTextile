@@ -1,3 +1,9 @@
+export interface ProductAttribute {
+  attributeId: string;
+  attributeKey: string;
+  attributeValue: string;
+}
+
 export interface ProductResponse {
   productId: string;
   name: string;
@@ -14,4 +20,5 @@ export interface ProductResponse {
   createdAt: string;
   customizable: boolean | null;
   customOptions: unknown | null;
+  attributes?: ProductAttribute[];
 }

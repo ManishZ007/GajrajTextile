@@ -31,7 +31,7 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
 
         String path = request.getRequestURI();
 
-        if(path.contains("/internal") || path.contains("/manger-worker") || path.contains("/getWorker")) {
+        if(path.contains("/internal") || (path.contains("/manger-worker") && !path.contains("/verify/")) || path.contains("/getWorker")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -50,21 +50,23 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
             }
 
             String userId = jwtService.extractUserId(token);
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userId, null, null);
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userId, null, jwtService.extractUserRole(token) == null ? java.util.List.of() : java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + jwtService.extractUserRole(token).replace("ROLE_", ""))));
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            filterChain.doFilter(request, response);
         }catch (io.jsonwebtoken.ExpiredJwtException ex) {
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has expired. Please refresh or log in again.");
+            return;
         } catch (io.jsonwebtoken.SignatureException ex) {
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token signature");
+            return;
         } catch (Exception ex) {
-            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: " + ex.getMessage());
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid authentication token");
+            return;
         }
 
-
-
+        // Application/database failures must keep their real status, not become a 401.
+        filterChain.doFilter(request, response);
     }
 
 

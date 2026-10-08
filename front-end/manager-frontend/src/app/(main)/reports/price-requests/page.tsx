@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchProductDetail } from "@/lib/api/productApi";
+import { ApiError } from "@/lib/api/apiFetch";
 import { usePageTitle } from "@/hooks/usePagetitle";
 import { useRole } from "@/hooks/useRole";
 import {
@@ -31,6 +33,7 @@ interface PriceChange {
   reason: string;
   updatedBy: string;
   approvalStatus: "PENDING" | "APPROVED" | "REJECTED";
+  priceApplied?: boolean;
   createdAt: string;
 }
 
@@ -94,6 +97,46 @@ function CreateModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const [loadedProductId, setLoadedProductId] = useState("");
+  const [productName, setProductName] = useState("");
+  const [lookupError, setLookupError] = useState("");
+  const [loadingPrice, setLoadingPrice] = useState(false);
+  const [lookupAttempt, setLookupAttempt] = useState(0);
+  const priceReady = loadedProductId !== "" && loadedProductId === productId.trim();
+
+  useEffect(() => {
+    const id = productId.trim();
+    let cancelled = false;
+    setOldPrice("");
+    setLoadedProductId("");
+    setProductName("");
+    setLookupError("");
+    setLoadingPrice(Boolean(id));
+    if (!id) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const product = await fetchProductDetail(encodeURIComponent(id));
+        const price = Number(product?.basePrice);
+        if (product?.basePrice == null || product.basePrice === "" || !Number.isFinite(price) || price <= 0) {
+          throw new Error("This product does not have a valid current price.");
+        }
+        if (cancelled) return;
+        setOldPrice(String(price));
+        setLoadedProductId(id);
+        setProductName(product.name || "Product found");
+      } catch (err: unknown) {
+        if (cancelled) return;
+        setLookupError(err instanceof ApiError && (err.status === 404 || err.status === 400)
+          ? "Product not found. Check the Product ID."
+          : err instanceof Error ? err.message : "Unable to load the current price. Please retry.");
+      } finally {
+        if (!cancelled) setLoadingPrice(false);
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [productId, lookupAttempt]);
+
   const oldNum = parseFloat(oldPrice);
   const newNum = parseFloat(newPrice);
   const hasPreview =
@@ -108,8 +151,8 @@ function CreateModal({
       setError("Product ID is required");
       return;
     }
-    if (!oldPrice || isNaN(oldNum) || oldNum <= 0) {
-      setError("Enter a valid old price");
+    if (!priceReady || loadingPrice || !oldPrice || !Number.isFinite(oldNum) || oldNum <= 0) {
+      setError("Wait for the product’s current price to load before submitting.");
       return;
     }
     if (!newPrice || isNaN(newNum) || newNum <= 0) {
@@ -185,12 +228,27 @@ function CreateModal({
               value={productId}
               onChange={(e) => {
                 setProductId(e.target.value);
+                setOldPrice("");
+                setLoadedProductId("");
+                setLookupError("");
                 setError("");
               }}
-              placeholder="e.g. prod_abc123"
+              placeholder="Paste the Product ID from product preview"
+              disabled={saving}
               className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-400 transition-colors font-mono"
               autoFocus
             />
+          </div>
+
+          <div aria-live="polite" className="text-xs">
+            {loadingPrice && <p className="text-gray-500">Loading current price...</p>}
+            {!loadingPrice && priceReady && <p className="text-emerald-700">{productName} — current price loaded.</p>}
+            {lookupError && (
+              <p className="text-red-600">
+                {lookupError}{" "}
+                <button type="button" onClick={() => setLookupAttempt((attempt) => attempt + 1)} className="underline">Retry</button>
+              </p>
+            )}
           </div>
 
           {/* Old price / New price */}
@@ -204,10 +262,9 @@ function CreateModal({
                 min={0}
                 step="0.01"
                 value={oldPrice}
-                onChange={(e) => {
-                  setOldPrice(e.target.value);
-                  setError("");
-                }}
+                readOnly
+                aria-label="Old price, loaded from product"
+                aria-busy={loadingPrice}
                 placeholder="0.00"
                 className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-400 transition-colors"
               />
@@ -315,7 +372,7 @@ function CreateModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || loadingPrice || !priceReady}
             className="flex-1 py-2.5 bg-black text-white text-sm font-medium rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving && <IconLoader />}
@@ -486,8 +543,8 @@ export default function ReportsPriceRequests() {
     try {
       await ownerApprovePriceChange(id);
       refresh();
-    } catch {
-      // silently fail
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Price update failed. Please retry.");
     } finally {
       setApprovingId(null);
     }
@@ -766,6 +823,12 @@ export default function ReportsPriceRequests() {
                               <IconTrash />
                             </button>
                           </div>
+                        )}
+                        {isOwner && c.approvalStatus === "APPROVED" && !c.priceApplied && (
+                          <button onClick={() => handleApprovePriceChange(c.id)} disabled={approvingId === c.id}
+                            className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs text-emerald-700 disabled:opacity-50">
+                            {approvingId === c.id ? "Applying..." : "Apply approved price"}
+                          </button>
                         )}
                       </td>
                     </tr>

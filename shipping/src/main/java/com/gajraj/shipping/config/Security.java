@@ -31,7 +31,7 @@ public class Security {
         httpSecurity.csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration config = new CorsConfiguration();
-                    config.setAllowedOrigins(List.of("http://localhost:3001"));
+                    config.setAllowedOrigins(List.of("http://localhost:3001", "http://localhost:3000"));
                     config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
                     config.setAllowedHeaders(List.of("*"));
                     config.setAllowCredentials(true);
@@ -42,10 +42,10 @@ public class Security {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         httpSecurity.authorizeHttpRequests(registry -> registry
-                        .requestMatchers("/shipping/create").authenticated()
-                        .requestMatchers("/shipping/cancel").authenticated()
-                        .requestMatchers("/shipping/mock/next-status").authenticated()
-                        .requestMatchers("/shipping/**").permitAll()
+                        .requestMatchers("/shipping/*/cod-collected", "/shipping/create").hasAnyRole("MANAGER", "OWNER", "ADMIN")
+                        .requestMatchers("/shipping/cancel").hasAnyRole("MANAGER", "OWNER", "ADMIN")
+                        .requestMatchers("/shipping/mock/next-status").hasAnyRole("MANAGER", "OWNER", "ADMIN")
+                        .requestMatchers("/shipping/**").authenticated()
                         .requestMatchers("/internal/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new JWTAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class);

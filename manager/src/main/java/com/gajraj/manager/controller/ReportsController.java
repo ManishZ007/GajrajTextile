@@ -4,6 +4,7 @@ import com.gajraj.manager.dto.reportDTO.ReportCreateDTO;
 import com.gajraj.manager.service.managerService.ReportsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -11,6 +12,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/manager/reports")
 public class ReportsController {
+    @Autowired private com.gajraj.manager.config.ManagerRecordAccess access;
 
     @Autowired
     private ReportsService reportsService;
@@ -31,17 +33,20 @@ public class ReportsController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<?> createReport(@RequestBody ReportCreateDTO dto) {
+    public ResponseEntity<?> createReport(@RequestBody ReportCreateDTO dto, Authentication auth) {
+        dto.setReportedBy(auth.getName());
         return reportsService.createReport(dto);
     }
 
     @PutMapping("/update/{reportId}")
-    public ResponseEntity<?> updateReport(@PathVariable UUID reportId, @RequestBody ReportCreateDTO dto) {
+    public ResponseEntity<?> updateReport(@PathVariable UUID reportId, @RequestBody ReportCreateDTO dto, Authentication auth) {
+        access.report(reportId, auth);
         return reportsService.updateReport(reportId, dto);
     }
 
     @DeleteMapping("/delete/{reportId}")
-    public ResponseEntity<?> deleteReport(@PathVariable UUID reportId) {
+    public ResponseEntity<?> deleteReport(@PathVariable UUID reportId, Authentication auth) {
+        access.report(reportId, auth);
         return reportsService.deleteReport(reportId);
     }
 

@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     const page = searchParams.get('page') ?? '0';
     const size = searchParams.get('size') ?? '10';
     const data = await apiFetch(
-      `http://localhost:8083/order/my-orders?page=${page}&size=${size}`
+      `http://localhost:8083/orders/my-orders?page=${page}&size=${size}`
     );
     return NextResponse.json(data);
   });

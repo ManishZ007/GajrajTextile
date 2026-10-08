@@ -1,10 +1,13 @@
+import { enrichCustomerSession } from '@/lib/authProfile';
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import Facebook from 'next-auth/providers/facebook';
 import Credentials from 'next-auth/providers/credentials';
 
+const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:8081';
+
 async function refreshAccessToken(request: string) {
-  const res = await fetch('http://localhost:8081/auth/refresh', {
+  const res = await fetch(`${authServiceUrl}/auth/refresh`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -19,7 +22,7 @@ async function refreshAccessToken(request: string) {
   return {
     accessToken: data.new_access_token,
     refreshToken: request, // keep the same refresh token
-    accessTokenExpires: Date.now() + 900000, // 15 min — adjust if your backend sends expires_in
+    accessTokenExpires: Date.now() + 900000, // 15 min â€” adjust if your backend sends expires_in
   };
 }
 
@@ -35,21 +38,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
     Credentials({
       credentials: {
+        mode: { type: 'text' },
+        phone: { type: 'text' },
+        code: { type: 'text' },
+        challengeId: { type: 'text' },
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
       authorize: async (credentials) => {
-        if (!credentials?.email || !credentials?.password) return null;
+        const mobile = credentials?.mode === 'mobile';
+        if (mobile ? (!credentials?.phone || !credentials?.code || !credentials?.challengeId) : (!credentials?.email || !credentials?.password)) return null;
 
-        const res = await fetch('http://localhost:8081/auth/login', {
+        const res = await fetch(`${authServiceUrl}/auth/${mobile ? 'customer/otp/verify' : 'login'}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            email: credentials.email,
-            password: credentials.password,
-          }),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(10000),
+          body: JSON.stringify(mobile ? {
+            phone: credentials.phone, code: credentials.code, challengeId: credentials.challengeId,
+          } : { email: credentials.email, password: credentials.password }),
         });
 
         if (!res.ok) return null;
@@ -72,12 +81,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
         token.accessTokenExpires = user.accessTokenExpires;
-        return token;
+        token.sub = user.id;
+        return enrichCustomerSession(token, authServiceUrl);
       }
 
       // google
       if (account?.provider == 'google') {
-        const res = await fetch('http://localhost:8081/auth/oauth/google', {
+        const res = await fetch(`${authServiceUrl}/auth/oauth/google`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -104,7 +114,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       // facebook
       if (account?.provider == 'facebook') {
-        const res = await fetch('http://localhost:8081/auth/oauth/facebook', {
+        const res = await fetch(`${authServiceUrl}/auth/oauth/facebook`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -129,7 +139,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       if (Date.now() < (token.accessTokenExpires as number)) {
-        return token;
+        return enrichCustomerSession(token, authServiceUrl);
       }
 
       const refreshed = await refreshAccessToken(token.refreshToken as string);
@@ -141,18 +151,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         };
       }
 
-      return {
+      return enrichCustomerSession({
         ...token,
         accessToken: refreshed.accessToken,
         refreshToken: refreshed.refreshToken,
         accessTokenExpires: refreshed.accessTokenExpires,
-      };
+      }, authServiceUrl);
     },
 
     async session({ session, token }) {
       session.accessToken = token.accessToken as string;
       session.error = token.error as string | undefined;
       if (token.sub) session.user.id = token.sub;
+      session.user.name = token.name ?? null;
+      session.user.email = token.email ?? '';
       return session;
     },
   },

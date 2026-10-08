@@ -212,6 +212,9 @@ public class WorkerService {
 
         WorkerVerification verification = worker.getVerification();
 
+        // Preserve the only surviving creation attribution before updating the current decision.
+        if (worker.getCreatedByManagerId() == null && verification != null && "Initial registration".equals(verification.getReason()))
+            worker.setCreatedByManagerId(verification.getChangeBy());
         WorkerVerification.VerificationStatus newStatus = WorkerVerification.VerificationStatus.valueOf(status);
 
         if (verification == null) {

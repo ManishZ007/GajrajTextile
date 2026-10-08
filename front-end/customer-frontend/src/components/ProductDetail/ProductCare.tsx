@@ -92,6 +92,8 @@ export function ProductCare() {
                       fontSize: '12px',
                       lineHeight: '1.75',
                       color: '#555',
+                      letterSpacing: '.6px',
+                      // fontFamily: 'Clamp',
                     }}
                   >
                     {toCapitalCase(point)}

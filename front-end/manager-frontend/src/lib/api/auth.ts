@@ -36,6 +36,11 @@ export async function adminRefresh() {
 }
 
 export async function adminLogout() {
+  const token = localStorage.getItem("access_token");
+  const response = await fetch(`${AUTH_SERVICE}/auth/admin/logout`, {
+    method: "POST", credentials: "include", headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok && response.status !== 401) throw new Error("Logout failed. Please retry.");
   localStorage.removeItem("role");
   localStorage.removeItem("user_id");
   localStorage.removeItem("access_token");

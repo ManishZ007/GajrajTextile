@@ -27,7 +27,7 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
 
         if(token != null && jwtService.validationToken(token)) {
             String userId = jwtService.extractUserId(token);
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userId, null, null);
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userId, null, java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + jwtService.extractUserRole(token).replace("ROLE_", ""))));
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
@@ -43,6 +43,8 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
             return headerAuth.substring(7);
         }
 
+        if (request.getCookies() != null) for (var cookie : request.getCookies())
+            if ("access_token".equals(cookie.getName())) return cookie.getValue();
         return null;
     }
 }

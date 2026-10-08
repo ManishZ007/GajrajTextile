@@ -10,12 +10,21 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Repository
 public interface UserRepo extends JpaRepository<Users, UUID> {
 
     Users findByEmail(String email);
+
+    Users findByPhoneNumber(String phoneNumber);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from Users u where u.user_id = :id")
+    java.util.Optional<Users> findForOtpLogin(@Param("id") UUID id);
+
+    List<Users> findByRoleOrderByCreatedAtDesc(Users.Role role);
 
     Users findByAuthProviderAndProviderUserId(Users.AuthProvider authProvider, String providerUserId);
 

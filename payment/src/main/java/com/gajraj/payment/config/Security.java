@@ -28,12 +28,21 @@ public class Security {
     public SecurityFilterChain securityFilterChain (HttpSecurity httpSecurity) throws Exception {
 
         httpSecurity.csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(request -> {
+                    var config = new org.springframework.web.cors.CorsConfiguration();
+                    config.setAllowedOrigins(java.util.List.of("http://localhost:3000", "http://localhost:3001"));
+                    config.setAllowedMethods(java.util.List.of("GET", "POST", "OPTIONS"));
+                    config.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type"));
+                    config.setAllowCredentials(true);
+                    return config;
+                }))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         httpSecurity.authorizeHttpRequests(registry -> registry
                         .requestMatchers("/internal/**").permitAll()
+                        .requestMatchers("/payment/manager/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
                         .requestMatchers("/payment/**").permitAll()
                 .anyRequest()
                 .authenticated())

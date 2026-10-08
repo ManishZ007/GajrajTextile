@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
-import { adminLogout } from "@/lib/api/auth";
 import { useRole } from "@/hooks/useRole";
 
 const navItems = [
@@ -12,31 +10,20 @@ const navItems = [
   { label: "Orders", href: "/orders" },
   { label: "Workers", href: "/workers" },
   { label: "Customers", href: "/customers" },
+  { label: "Dealers", href: "/dealers" },
   { label: "Support", href: "/support" },
   { label: "Reports", href: "/reports" },
   { label: "Inventory", href: "/inventory" },
 ];
 
+const ownerNavItems = [
+  { label: "Managers", href: "/managers" },
+];
+
 export default function Navbar() {
   const pathname = usePathname();
   const baseRouet = "/" + pathname.split("/")[1];
-  const [profileOpen, setProfileOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const { role } = useRole();
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setProfileOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  function handleLogout() {
-    adminLogout();
-  }
 
   return (
     <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 bg-transparent backdrop-blur-sm border-b border-transparent">
@@ -50,7 +37,7 @@ export default function Navbar() {
 
       {/* Nav links — absolutely centered */}
       <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
-        {navItems.map((item) => (
+        {[...navItems, ...(role === "OWNER" ? ownerNavItems : [])].map((item) => (
           <Link
             key={item.href}
             href={item.href}
@@ -149,31 +136,10 @@ export default function Navbar() {
           </span>
         )}
 
-        {/* Avatar + dropdown */}
-        <div className="relative" ref={dropdownRef}>
-          <button
-            aria-label="Profile"
-            onClick={() => setProfileOpen((v) => !v)}
-            className="w-8 h-8 rounded-full bg-gray-800 border-2 border-gray-300 flex items-center justify-center text-white text-[11px] font-semibold tracking-wide hover:border-gray-400 transition-colors"
-          >
-            M
-          </button>
-
-          {profileOpen && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white/90 backdrop-blur-md border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
-              <div className="px-4 py-3 border-b border-gray-100">
-                <p className="text-xs font-semibold text-gray-800 truncate">{role ?? "Manager"}</p>
-                <p className="text-[11px] text-gray-400 truncate mt-0.5">GajrajConsole</p>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-          )}
-        </div>
+        <Link href="/profile" aria-label="My profile" title="My profile"
+          className="w-8 h-8 rounded-full bg-gray-800 border-2 border-gray-300 flex items-center justify-center text-white text-[11px] font-semibold hover:border-gray-400 transition-colors">
+          {role === "OWNER" ? "O" : "M"}
+        </Link>
       </div>
     </nav>
   );

@@ -49,19 +49,22 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
 
             String userId = jwtService.extractUserId(token);
             UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userId, null, null);
+                    new UsernamePasswordAuthenticationToken(userId, null, java.util.List.of(
+                            new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + jwtService.extractUserRole(token).replace("ROLE_", "").toUpperCase())));
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            filterChain.doFilter(request, response);
-
         } catch (io.jsonwebtoken.ExpiredJwtException ex) {
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has expired. Please log in again.");
+            return;
         } catch (io.jsonwebtoken.SignatureException ex) {
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token signature.");
+            return;
         } catch (Exception ex) {
-            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: " + ex.getMessage());
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
+            return;
         }
+        filterChain.doFilter(request, response);
     }
 
     private String parseJwt(HttpServletRequest request) {

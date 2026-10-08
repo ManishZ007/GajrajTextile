@@ -1,13 +1,3 @@
-"use client";
+import Dashboard from "@/components/Dashboard/Dashboard";
 
-import { usePageTitle } from "@/hooks/usePagetitle";
-
-export default function DashboardQuickLinks() {
-  const title = usePageTitle();
-
-  return (
-    <div>
-      <h1 className="text-2xl font-semibold text-gray-800 mb-6">{title}</h1>
-    </div>
-  );
-}
+export default function Page() { return <Dashboard view="quick-links" />; }

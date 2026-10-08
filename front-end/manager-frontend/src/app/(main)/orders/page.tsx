@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePageTitle } from "@/hooks/usePagetitle";
-import { fetchAllOrders, cancelOrder } from "@/lib/api/orderApi";
+import { fetchAllOrders, cancelOrder, takeOrder } from "@/lib/api/orderApi";
 import {
   IconChevronDown,
   IconChevronLeft,
@@ -35,6 +35,7 @@ interface Order {
   totalAmount: number;
   orderStatus: OrderStatus;
   orderDate: string;
+  handledByManagerId?: string;
 }
 
 interface PagedResponse {
@@ -201,6 +202,9 @@ export default function OrdersAll() {
   const title = usePageTitle();
   const router = useRouter();
 
+  const myUserId = typeof window !== "undefined" ? localStorage.getItem("user_id") : null;
+  const [takingId, setTakingId] = useState<string | null>(null);
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
   const [search, setSearch] = useState("");
@@ -266,6 +270,20 @@ export default function OrdersAll() {
   function changeSearch(v: string) {
     setSearch(v);
     setPage(0);
+  }
+
+  async function handleTake(e: React.MouseEvent, orderId: string) {
+    e.stopPropagation();
+    setTakingId(orderId);
+    try {
+      await takeOrder(orderId);
+      await fetchData();
+    } catch {
+      // already taken or error — refresh to show current state
+      await fetchData();
+    } finally {
+      setTakingId(null);
+    }
   }
 
   async function handleCancel(e: React.MouseEvent, orderId: string) {
@@ -508,13 +526,32 @@ export default function OrdersAll() {
                       >
                         <button
                           title="View"
-                          onClick={() =>
-                            router.push(`/orders/${order.orderId}`)
-                          }
+                          onClick={() => router.push(`/orders/${order.orderId}`)}
                           className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
                         >
                           <IconEye />
                         </button>
+
+                        {/* Take button */}
+                        {!order.handledByManagerId ? (
+                          <button
+                            title="Take this order"
+                            onClick={(e) => handleTake(e, order.orderId)}
+                            disabled={takingId === order.orderId}
+                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                          >
+                            {takingId === order.orderId ? "..." : "Take"}
+                          </button>
+                        ) : order.handledByManagerId === myUserId ? (
+                          <span className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-600">
+                            Yours
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-gray-100 text-gray-400">
+                            Taken
+                          </span>
+                        )}
+
                         {order.orderStatus === "PENDING" && (
                           <button
                             title="Cancel order"

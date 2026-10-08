@@ -22,6 +22,9 @@ import java.util.UUID;
 @Service
 public class ShippingService {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private OrderShippingClient orderClient;
+
     private final ShippingProvider shippingProvider;
     private final MockShippingProvider mockShippingProvider;
     private final ShipmentRepo shipmentRepo;
@@ -46,9 +49,13 @@ public class ShippingService {
             throw new RuntimeException("Shipment already exists for orderId: " + request.getOrderId());
         }
 
+        var terms = orderClient.begin(request.getOrderId());
+        if (terms == null) throw new IllegalStateException("Order shipping terms unavailable");
         ShipmentProviderRequest providerRequest = ShipmentProviderRequest.builder()
                 .orderId(request.getOrderId())
-                .userId(userId)
+                .userId(terms.userId())
+                .paymentMethod(terms.paymentMethod())
+                .codAmount(terms.codAmount())
                 .shipmentType(request.getShipmentType())
                 .recipientName(request.getRecipientName())
                 .recipientPhone(request.getRecipientPhone())
@@ -63,7 +70,10 @@ public class ShippingService {
 
         Shipment shipment = new Shipment();
         shipment.setOrderId(request.getOrderId());
-        shipment.setUserId(userId);
+        shipment.setUserId(terms.userId());
+        shipment.setOrderSyncPending(true);
+        shipment.setPaymentMethod(terms.paymentMethod());
+        shipment.setCodAmount(terms.codAmount());
         shipment.setProvider(result.getProvider());
         shipment.setShipmentType(request.getShipmentType());
         shipment.setTrackingNumber(result.getTrackingNumber());
@@ -83,7 +93,9 @@ public class ShippingService {
 
     @Transactional
     public ShipmentResponse advanceMockStatus(NextStatusRequest request) {
-        Shipment shipment = findById(request.getShipmentId());
+        Shipment shipment = shipmentRepo.lockById(UUID.fromString(request.getShipmentId())).orElseThrow();
+        if (shipment.getProvider() != com.gajraj.shipping.enums.Provider.MOCK) throw new IllegalStateException("Only mock shipments can be simulated");
+        if (Boolean.TRUE.equals(shipment.getOrderSyncPending())) syncOrder(shipment.getId());
 
         ShipmentStatus current = shipment.getShipmentStatus();
         if (current == ShipmentStatus.DELIVERED) {
@@ -96,12 +108,15 @@ public class ShippingService {
             throw new RuntimeException("Cannot advance a returned shipment.");
         }
 
+        if (request.getExpectedStatus() != null && !current.name().equals(request.getExpectedStatus()))
+            throw new IllegalStateException("Shipment changed; refresh before advancing again");
         ShipmentStatus next = mockShippingProvider.getNextStatus(current);
         if (next == null) {
             throw new RuntimeException("No next status available for: " + current);
         }
 
         shipment.setShipmentStatus(next);
+        shipment.setOrderSyncPending(true);
         shipment = shipmentRepo.save(shipment);
         addTrackingEvent(shipment, next);
 
@@ -112,6 +127,7 @@ public class ShippingService {
     public ShipmentResponse getShipmentByOrderId(String orderId) {
         Shipment shipment = shipmentRepo.findByOrderId(orderId)
                 .orElseThrow(() -> new RuntimeException("NOT_FOUND: Shipment not found for orderId: " + orderId));
+        authorizeRead(orderId);
         return toResponse(shipment);
     }
 
@@ -120,6 +136,7 @@ public class ShippingService {
         Shipment shipment = shipmentRepo.findByTrackingNumber(trackingNumber)
                 .orElseThrow(() -> new RuntimeException("NOT_FOUND: Shipment not found for trackingNumber: " + trackingNumber));
 
+        authorizeRead(shipment.getOrderId());
         List<ShipmentTracking> events = trackingRepo.findByShipment_IdOrderByEventTimeAsc(shipment.getId());
 
         List<TrackingEventResponse> timeline = events.stream()
@@ -134,7 +151,7 @@ public class ShippingService {
     public ShipmentResponse cancelShipment(CancelShipmentRequest request, String userId) {
         Shipment shipment = findById(request.getShipmentId());
 
-        if (!shipment.getUserId().equals(userId)) {
+        if (!isStaff()) {
             throw new RuntimeException("Not authorized to cancel this shipment.");
         }
 
@@ -143,15 +160,18 @@ public class ShippingService {
             throw new RuntimeException("Cannot cancel a delivered shipment.");
         }
         if (current == ShipmentStatus.CANCELLED) {
-            throw new RuntimeException("Shipment is already cancelled.");
+            orderClient.cancelled(shipment.getOrderId());
+            return toResponse(shipment);
         }
-        if (current == ShipmentStatus.OUT_FOR_DELIVERY) {
+        if (!java.util.Set.of(ShipmentStatus.CREATED, ShipmentStatus.PACKED, ShipmentStatus.READY_FOR_PICKUP).contains(current)) {
             throw new RuntimeException("Cannot cancel a shipment that is out for delivery.");
         }
 
         shippingProvider.cancelShipment(shipment.getAwbNumber());
 
+        orderClient.cancelled(shipment.getOrderId());
         shipment.setShipmentStatus(ShipmentStatus.CANCELLED);
+        shipment.setOrderSyncPending(false);
         shipment = shipmentRepo.save(shipment);
 
         String reason = (request.getReason() != null && !request.getReason().isBlank())
@@ -167,6 +187,44 @@ public class ShippingService {
         trackingRepo.save(event);
 
         return toResponse(shipment);
+    }
+
+    @Transactional
+    public ShipmentResponse collectCod(String shipmentId) {
+        Shipment shipment = shipmentRepo.lockById(UUID.fromString(shipmentId)).orElseThrow();
+        if (!"COD".equalsIgnoreCase(shipment.getPaymentMethod()) || shipment.getShipmentStatus() != ShipmentStatus.DELIVERED)
+            throw new IllegalStateException("Cash collection can only be confirmed for a delivered COD shipment");
+        if (!Boolean.TRUE.equals(shipment.getCodCollected())) {
+            orderClient.collected(shipment.getOrderId());
+            shipment.setCodCollected(true);
+            shipmentRepo.save(shipment);
+        }
+        return toResponse(shipment);
+    }
+
+    private boolean isStaff() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream().anyMatch(a -> java.util.Set.of("ROLE_MANAGER", "ROLE_OWNER", "ROLE_ADMIN").contains(a.getAuthority()));
+    }
+    private void authorizeRead(String orderId) {
+        if (isStaff()) return;
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !java.util.Objects.equals(auth.getName(), orderClient.owner(orderId)))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
+    }
+    @Transactional(readOnly = true)
+    public TrackingResponse timeline(String orderId) {
+        authorizeRead(orderId);
+        var shipment = shipmentRepo.findByOrderId(orderId);
+        return shipment.isEmpty() ? null : getTrackingInfo(shipment.get().getTrackingNumber());
+    }
+    @Transactional
+    public void syncOrder(UUID id) {
+        var shipment = shipmentRepo.lockById(id).orElseThrow();
+        if (!Boolean.TRUE.equals(shipment.getOrderSyncPending())) return;
+        orderClient.progress(shipment);
+        shipment.setOrderSyncPending(false);
+        shipmentRepo.save(shipment);
     }
 
     private void addTrackingEvent(Shipment shipment, ShipmentStatus status) {
@@ -204,7 +262,11 @@ public class ShippingService {
         ShipmentResponse r = new ShipmentResponse();
         r.setShipmentId(s.getId());
         r.setOrderId(s.getOrderId());
+        r.setPaymentMethod(s.getPaymentMethod());
+        r.setCodAmount(s.getCodAmount());
+        r.setCodCollected(s.getCodCollected());
         r.setUserId(s.getUserId());
+        r.setOrderSyncPending(s.getOrderSyncPending());
         r.setProvider(s.getProvider().name());
         r.setShipmentType(s.getShipmentType().name());
         r.setTrackingNumber(s.getTrackingNumber());

@@ -1,3 +1,4 @@
+import { internalServiceUrl } from './internalServiceUrl';
 import { auth } from '@/auth';
 
 export class SessionExpiredError extends Error {
@@ -14,7 +15,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     throw new SessionExpiredError();
   }
 
-  const res = await fetch(path, {
+  const res = await fetch(internalServiceUrl(path), {
     ...options,
     headers: {
       'Content-Type': 'application/json',

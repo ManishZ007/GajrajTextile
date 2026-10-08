@@ -284,7 +284,8 @@ export default function ProductsEdit() {
                   size: v.size,
                   color: v.color,
                   price: parseFloat(v.price) || 0,
-                  stockQuantity: parseInt(v.stock) || 0,
+                  variantId: v.variantId,
+                  ...(v.variantId ? {} : { stockQuantity: 0 }),
                   sku: v.sku,
                   status: v.status,
                 }))
@@ -428,6 +429,7 @@ export default function ProductsEdit() {
                 >
                   <option value="ACTIVE">Active</option>
                   <option value="OUT_OF_STOCK">Out of stock</option>
+                            <option value="INACTIVE">Inactive</option>
                 </Select>
               </div>
             </div>
@@ -530,7 +532,7 @@ export default function ProductsEdit() {
                       <th className="text-left px-3 py-2.5 font-medium">Size</th>
                       <th className="text-left px-3 py-2.5 font-medium">Color</th>
                       <th className="text-left px-3 py-2.5 font-medium">Price (₹)</th>
-                      <th className="text-left px-3 py-2.5 font-medium">Stock</th>
+                      <th className="text-left px-3 py-2.5 font-medium">Stock (edit in Inventory)</th>
                       <th className="text-left px-3 py-2.5 font-medium">SKU</th>
                       <th className="text-left px-3 py-2.5 font-medium">Status</th>
                       <th className="px-3 py-2.5" />
@@ -566,8 +568,9 @@ export default function ProductsEdit() {
                         </td>
                         <td className="px-2 py-2">
                           <input
-                            value={v.stock}
-                            onChange={(e) => updateVariant(i, "stock", e.target.value)}
+                            value={v.stock || "0"}
+                            readOnly
+                            title="Change stock through Inventory"
                             type="number"
                             placeholder="0"
                             className={`${inputCls} w-16`}
@@ -589,10 +592,13 @@ export default function ProductsEdit() {
                           >
                             <option value="ACTIVE">Active</option>
                             <option value="OUT_OF_STOCK">Out of stock</option>
+                            <option value="INACTIVE">Inactive</option>
                           </Select>
                         </td>
                         <td className="px-2 py-2">
                           <button
+                            disabled={!!v.variantId}
+                            title={v.variantId ? "Mark existing variants INACTIVE to preserve their history" : "Remove new variant"}
                             onClick={() => removeVariant(i)}
                             className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                           >

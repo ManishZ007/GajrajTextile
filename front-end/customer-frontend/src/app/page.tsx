@@ -1,41 +1,56 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+// import { ShowCaseSection } from '@/components/landingPageContent/ShowCaseSection';
 import LandingNavbar from '@/components/Navbar/LandingNavbar';
-import { useHelloStore } from '@/store/helloStore';
-import { useNotificationStore } from '@/store/notificationStore';
+import VideoComponent from '@/components/landingPageComponents/VideoComponent';
+import ImageComponent from '@/components/landingPageComponents/ImageComponent';
+import DynamicWindowShowCaseSection from '@/components/landingPageComponents/DynamicWindowShowCaseSection';
+import AdvertisementFooter from '@/components/landingPageComponents/AdvertisementFooter';
+import Footer from '@/components/Footer/Footer';
+import DynamicWindowProductShowCaseSection from '@/components/landingPageComponents/DynamicWindowProductShowCaseSection';
+import GajrajServiceShowCaseSection from '@/components/landingPageComponents/GajrajServiceShowCaseSection';
+import {
+  advertisementFooterConstants,
+  categoryShowcaseConstants,
+  heroImageConstants,
+  productShowcaseConstants,
+  serviceShowcaseConstants,
+  videoComponentConstants,
+} from '@/constants/landingPageComponentsConstants';
 
 export default function Home() {
-  const message = useHelloStore((s) => s.message);
-  const setMessage = useHelloStore((s) => s.setMessage);
+  const [isMobile, setIsMobile] = useState(false);
 
-  const addNotification = useNotificationStore((s) => s.addNotification);
-
-  const handleHelloResponse = async () => {
-    const res = await fetch('/api/hello/doHello');
-    const data = await res.json();
-    if (data) {
-      addNotification('success', 'Successfully done');
-    }
-    setMessage(data.message);
-  };
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   return (
     <>
       <div className="relative" suppressHydrationWarning>
-        <div className="h-screen w-full relative overflow-hidden">
+        <div className="relative">
           <LandingNavbar />
-          <video
-            src="/videos/hero1.mp4"
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover"
-          ></video>
+          <VideoComponent
+            {...videoComponentConstants}
+            style={isMobile ? { height: '58vh', marginTop: '3.75rem' } : {}}
+          />
         </div>
-        <button onClick={handleHelloResponse}>Fetch</button>
-        <h1>{message}</h1>
-        <div className="h-screen w-full bg-red-800">hello</div>
+
+        <DynamicWindowProductShowCaseSection {...productShowcaseConstants} />
+
+        <ImageComponent {...heroImageConstants} />
+        {/* <ShowCaseSection /> */}
+
+        <DynamicWindowShowCaseSection {...categoryShowcaseConstants} />
+
+        <GajrajServiceShowCaseSection {...serviceShowcaseConstants} />
+
+        <AdvertisementFooter {...advertisementFooterConstants} />
+        <Footer />
       </div>
     </>
   );

@@ -8,8 +8,8 @@ export async function GET(
 ) {
   return withApiHandler(async () => {
     const { orderId } = await params;
-    const data = await apiFetch(`http://localhost:8083/order/${orderId}`);
-    console.log('[order detail raw]', JSON.stringify(data, null, 2));
+    const data = await apiFetch(`http://localhost:8083/orders/${orderId}`);
+    // console.log('[order detail raw]', JSON.stringify(data, null, 2));
     return NextResponse.json(data);
   });
 }

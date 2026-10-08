@@ -5,17 +5,20 @@ import { UserCircle, LogIn, User } from 'lucide-react';
 
 type ProfileButtonProps = {
   onToggleProfile: () => void;
+  blackColor?: boolean;
 };
 
 export const ProfileButton = ({
   onToggleProfile,
+  blackColor,
 }: ProfileButtonProps): React.JSX.Element => {
   const { data: session, status } = useSession();
 
   const isLoggedIn = status === 'authenticated' && !!session;
 
-  // Extract first letter of user name for avatar initial (if name exists)
   const initial = session?.user?.name?.charAt(0)?.toUpperCase() ?? null;
+
+  const iconColor = blackColor ? 'rgba(0,0,0,0.70)' : 'rgba(255,255,255,0.80)';
 
   return (
     // hidden on mobile, visible on desktop only
@@ -26,12 +29,12 @@ export const ProfileButton = ({
         className="flex items-center justify-center cursor-pointer transition duration-300"
       >
         {isLoggedIn && initial ? (
-          // Logged in + name — show initial avatar
+          // Logged in + name — show initial avatar (always accent-colored, visible on both backgrounds)
           <span
             className="w-7 h-7 rounded-full text-[11px] font-medium flex items-center justify-center select-none"
             style={{
-              background: "var(--color-accent)",
-              color: "var(--color-accent-text)",
+              background: 'var(--color-accent)',
+              color: 'var(--color-accent-text)',
             }}
           >
             {initial}
@@ -40,15 +43,15 @@ export const ProfileButton = ({
           // Logged in, no name — show user circle icon
           <UserCircle
             strokeWidth={1.5}
-            className="w-5 h-5 transition duration-300"
-            style={{ color: "var(--color-text)" }}
+            className="w-5 h-5 transition-colors duration-300"
+            style={{ color: iconColor }}
           />
         ) : (
           // Guest — show user icon
           <User
             strokeWidth={1.5}
-            className="w-5 h-5 transition duration-300"
-            style={{ color: "var(--color-text-muted)" }}
+            className="w-5 h-5 transition-colors duration-300"
+            style={{ color: iconColor }}
           />
         )}
       </button>

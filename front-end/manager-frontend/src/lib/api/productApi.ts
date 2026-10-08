@@ -309,7 +309,8 @@ export async function updateStock(
     newQuantity?: number;
     adjustmentAmount?: number;
     reason: string;
-    changedBy: string;
+    expectedQuantity?: number;
+    changedBy?: string;
   },
 ) {
   return apiFetch(`${PRODUCT_SERVICE}/product/inventory/update/${variantId}`, {
@@ -319,7 +320,7 @@ export async function updateStock(
 }
 
 export async function bulkUpdateStock(
-  items: { variantId: string; newQuantity: number; reason: string; changedBy: string }[],
+  items: { variantId: string; newQuantity: number; reason: string; expectedQuantity: number }[],
 ) {
   return apiFetch(`${PRODUCT_SERVICE}/product/inventory/bulk-update`, {
     method: "PUT",
@@ -356,16 +357,16 @@ export async function saveCategoryBaseContent(
   });
 }
 
-export async function getCategoryAssetUploadUrl(fileName: string, categoryId: string) {
-  return apiFetch(
-    `${PRODUCT_SERVICE}/product/assets/upload-url?fileName=${encodeURIComponent(fileName)}&assetType=MODEL&category=${categoryId}`,
-  );
+export async function getCategoryAssetUploadUrl(fileName: string, categoryName: string, subFolder?: string) {
+  const params = new URLSearchParams({ fileName, assetType: "MODEL", category: categoryName });
+  if (subFolder) params.set("subFolder", subFolder);
+  return apiFetch(`${PRODUCT_SERVICE}/product/assets/upload-url?${params}`);
 }
 
-export async function getCategoryTextureUploadUrl(fileName: string, categoryId: string) {
-  return apiFetch(
-    `${PRODUCT_SERVICE}/product/assets/upload-url?fileName=${encodeURIComponent(fileName)}&assetType=TEXTURE&category=${categoryId}`,
-  );
+export async function getCategoryTextureUploadUrl(fileName: string, categoryName: string, subFolder?: string) {
+  const params = new URLSearchParams({ fileName, assetType: "TEXTURE", category: categoryName });
+  if (subFolder) params.set("subFolder", subFolder);
+  return apiFetch(`${PRODUCT_SERVICE}/product/assets/upload-url?${params}`);
 }
 
 // ── Category-level customization ──────────────────────────────────────────────
@@ -375,15 +376,30 @@ export async function fetchCategoryById(categoryId: string) {
 }
 
 export async function fetchPadarsByCategory(categoryId: string) {
-  return apiFetch(`${PRODUCT_SERVICE}/padars/category/${categoryId}`);
+  const data = await apiFetch(`${PRODUCT_SERVICE}/padars/category/${categoryId}`);
+  return (Array.isArray(data) ? data : []).map((p: Record<string, string>) => ({
+    id: p.padarId ?? p.id,
+    name: p.padarName ?? p.name,
+    modelUrl: p.padarUrl ?? p.modelUrl,
+  }));
 }
 
 export async function fetchBordersByCategory(categoryId: string) {
-  return apiFetch(`${PRODUCT_SERVICE}/borders/category/${categoryId}`);
+  const data = await apiFetch(`${PRODUCT_SERVICE}/borders/category/${categoryId}`);
+  return (Array.isArray(data) ? data : []).map((b: Record<string, string>) => ({
+    id: b.borderId ?? b.id,
+    name: b.borderName ?? b.name,
+    modelUrl: b.borderUrl ?? b.modelUrl,
+  }));
 }
 
 export async function fetchButtiesByCategory(categoryId: string) {
-  return apiFetch(`${PRODUCT_SERVICE}/buttis/category/${categoryId}`);
+  const data = await apiFetch(`${PRODUCT_SERVICE}/buttis/category/${categoryId}`);
+  return (Array.isArray(data) ? data : []).map((b: Record<string, string>) => ({
+    id: b.buttiId ?? b.id,
+    name: b.buttiName ?? b.name,
+    modelUrl: b.buttiUrl ?? b.modelUrl,
+  }));
 }
 
 export async function fetchBodyColorsByCategory(categoryId: string) {
@@ -396,44 +412,44 @@ export async function fetchBorderColorsByCategory(categoryId: string) {
 
 // CRUD for padars
 export async function fetchAllPadars() {
-  return apiFetch(`${PRODUCT_SERVICE}/padars`);
+  return apiFetch(`${PRODUCT_SERVICE}/padars/all`);
 }
 export async function createPadar(data: { name: string; modelUrl: string; categoryId: string }) {
-  return apiFetch(`${PRODUCT_SERVICE}/padars`, { method: "POST", body: JSON.stringify(data) });
+  return apiFetch(`${PRODUCT_SERVICE}/padars/create`, { method: "POST", body: JSON.stringify({ name: data.name, modelUrl: data.modelUrl, categoryId: data.categoryId }) });
 }
 export async function updatePadar(id: string, data: { name: string; modelUrl: string }) {
-  return apiFetch(`${PRODUCT_SERVICE}/padars/${id}`, { method: "PUT", body: JSON.stringify(data) });
+  return apiFetch(`${PRODUCT_SERVICE}/padars/update/${id}`, { method: "PUT", body: JSON.stringify({ name: data.name, modelUrl: data.modelUrl }) });
 }
 export async function deletePadar(id: string) {
-  return apiFetch(`${PRODUCT_SERVICE}/padars/${id}`, { method: "DELETE" });
+  return apiFetch(`${PRODUCT_SERVICE}/padars/delete/${id}`, { method: "DELETE" });
 }
 
 // CRUD for borders
 export async function fetchAllBorders() {
-  return apiFetch(`${PRODUCT_SERVICE}/borders`);
+  return apiFetch(`${PRODUCT_SERVICE}/borders/all`);
 }
 export async function createBorder(data: { name: string; modelUrl: string; categoryId: string }) {
-  return apiFetch(`${PRODUCT_SERVICE}/borders`, { method: "POST", body: JSON.stringify(data) });
+  return apiFetch(`${PRODUCT_SERVICE}/borders/create`, { method: "POST", body: JSON.stringify({ name: data.name, modelUrl: data.modelUrl, categoryId: data.categoryId }) });
 }
 export async function updateBorder(id: string, data: { name: string; modelUrl: string }) {
-  return apiFetch(`${PRODUCT_SERVICE}/borders/${id}`, { method: "PUT", body: JSON.stringify(data) });
+  return apiFetch(`${PRODUCT_SERVICE}/borders/update/${id}`, { method: "PUT", body: JSON.stringify({ name: data.name, modelUrl: data.modelUrl }) });
 }
 export async function deleteBorder(id: string) {
-  return apiFetch(`${PRODUCT_SERVICE}/borders/${id}`, { method: "DELETE" });
+  return apiFetch(`${PRODUCT_SERVICE}/borders/delete/${id}`, { method: "DELETE" });
 }
 
 // CRUD for buttis
 export async function fetchAllButtis() {
-  return apiFetch(`${PRODUCT_SERVICE}/buttis`);
+  return apiFetch(`${PRODUCT_SERVICE}/buttis/all`);
 }
 export async function createButti(data: { name: string; modelUrl: string; categoryId: string }) {
-  return apiFetch(`${PRODUCT_SERVICE}/buttis`, { method: "POST", body: JSON.stringify(data) });
+  return apiFetch(`${PRODUCT_SERVICE}/buttis/create`, { method: "POST", body: JSON.stringify({ name: data.name, modelUrl: data.modelUrl, categoryId: data.categoryId }) });
 }
 export async function updateButti(id: string, data: { name: string; modelUrl: string }) {
-  return apiFetch(`${PRODUCT_SERVICE}/buttis/${id}`, { method: "PUT", body: JSON.stringify(data) });
+  return apiFetch(`${PRODUCT_SERVICE}/buttis/update/${id}`, { method: "PUT", body: JSON.stringify({ name: data.name, modelUrl: data.modelUrl }) });
 }
 export async function deleteButti(id: string) {
-  return apiFetch(`${PRODUCT_SERVICE}/buttis/${id}`, { method: "DELETE" });
+  return apiFetch(`${PRODUCT_SERVICE}/buttis/delete/${id}`, { method: "DELETE" });
 }
 
 // CRUD for body colors
@@ -477,5 +493,25 @@ export async function fetchStockHistory(
   if (params.size !== undefined) query.set("size", String(params.size));
   if (params.variantId) query.set("variantId", params.variantId);
   if (params.changeType) query.set("changeType", params.changeType);
-  return apiFetch(`${PRODUCT_SERVICE}/product/inventory/history?${query}`);
+  const data = await apiFetch(`${PRODUCT_SERVICE}/product/inventory/history?${query}`);
+  const staff: { id: string; name: string }[] = await apiFetch("http://localhost:8081/auth/admin/report-staff").catch(() => []);
+  const names = new Map(staff.map(person => [person.id, person.name]));
+  return { ...data, content: data.content.map((entry: { changedBy?: string }) => ({
+    ...entry,
+    changedBy: entry.changedBy === "SYSTEM" ? "System" : names.get(entry.changedBy ?? "") ??
+      (entry.changedBy === "MANAGER" ? "Manager (older record)" : "Staff name unavailable"),
+  })) };
+
+}
+
+// Bulk tools must not silently omit variants after their first page.
+export async function fetchCompleteInventory(threshold?: number) {
+  const content = [];
+  let page = 0;
+  while (true) {
+    const data = threshold === undefined ? await fetchInventory({ page, size: 200 })
+      : await fetchLowStock({ page, size: 200, threshold });
+    content.push(...data.content);
+    if (++page >= data.totalPages) return { ...data, content };
+  }
 }

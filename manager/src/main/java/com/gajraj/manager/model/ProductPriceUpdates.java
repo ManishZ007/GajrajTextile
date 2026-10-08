@@ -47,6 +47,7 @@ public class ProductPriceUpdates {
 
     @Column(name = "owner_approval")
     private Boolean ownerApproval;
+    private Boolean priceApplied;
 
     @OneToOne
     @JoinColumn(name = "owner_report_id", referencedColumnName = "id")

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 
@@ -31,9 +32,12 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
+    null
+  );
   const [addingToCart, setAddingToCart] = useState(false);
 
+  const { status } = useSession();
   const addItem = useCartStore((s) => s.addItem);
   const addNotification = useNotificationStore((s) => s.addNotification);
 
@@ -89,8 +93,8 @@ export default function ProductDetailPage() {
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={() => router.back()}
-          className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium cursor-pointer"
-          style={{ background: '#1B1B1B', color: '#fff', marginTop: '8px' }}
+          className="flex items-center gap-2 px-6 py-3 rounded-full text-[0.725rem] tracking-[1.5px] uppercase cursor-pointer"
+          style={{ background: '#000000', color: '#fff', marginTop: '8px' }}
         >
           <ArrowLeft size={14} strokeWidth={2} />
           Go back
@@ -101,6 +105,12 @@ export default function ProductDetailPage() {
 
   const handleAddToCart = async (quantity: number) => {
     if (addingToCart) return;
+
+    if (status !== 'authenticated') {
+      addNotification('warning', 'Please sign in to add items to your cart.');
+      setTimeout(() => router.push('/login'), 1000);
+      return;
+    }
 
     // Men's wear: multiple variants — require user to pick one
     if (product.variants.length > 1 && !selectedVariant) {
@@ -140,7 +150,7 @@ export default function ProductDetailPage() {
           whileTap={{ scale: 0.95 }}
           onClick={() => router.back()}
           className="flex items-center gap-1.5 mb-5 sm:mb-8 cursor-pointer"
-          style={{ color: '#888', fontSize: '13px' }}
+          style={{ color: '#5a5a5a', fontSize: '13px' }}
           whileHover={{ color: '#1B1B1B' }}
         >
           <ArrowLeft size={14} strokeWidth={2} />
@@ -156,27 +166,17 @@ export default function ProductDetailPage() {
 
           {/* RIGHT — Details (55%) */}
           <div className="w-full lg:w-[40%] flex flex-col gap-5 sm:gap-6">
-            {/* Name / price / description */}
+            {/* Name / price */}
             <ProductInfo product={product} selectedVariant={selectedVariant} />
 
-            {/* Care instructions */}
-            <div style={DIVIDER}>
-              <ProductCare />
-            </div>
-
-            {/* Sustanibility instructions */}
-            <div style={DIVIDER}>
-              <ProductSustanibility />
-            </div>
-
-            {/* Single variant (sarees): renders nothing but fires onVariantChange to auto-select.
-                Multiple variants (men's wear): shows the size picker UI with divider. */}
+            {/* Single variant: auto-select silently */}
             {product.variants.length === 1 && (
               <ProductVariants
                 variants={product.variants}
                 onVariantChange={setSelectedVariant}
               />
             )}
+            {/* Multiple variants: size picker with divider */}
             {product.variants.length > 1 && (
               <div style={DIVIDER}>
                 <ProductVariants
@@ -186,6 +186,16 @@ export default function ProductDetailPage() {
               </div>
             )}
 
+            {/* Actions — full-width flat buttons */}
+            <ProductActions
+              isCustomizable={product.isCustomizable}
+              selectedVariant={selectedVariant}
+              totalStock={product.totalStock}
+              onAddToCart={handleAddToCart}
+              onCustomize={handleCustomize}
+              loading={addingToCart}
+            />
+
             {/* Attributes */}
             {product.attributes.length > 0 && (
               <div style={DIVIDER}>
@@ -193,16 +203,14 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Actions */}
+            {/* Care instructions */}
             <div style={DIVIDER}>
-              <ProductActions
-                isCustomizable={product.isCustomizable}
-                selectedVariant={selectedVariant}
-                totalStock={product.totalStock}
-                onAddToCart={handleAddToCart}
-                onCustomize={handleCustomize}
-                loading={addingToCart}
-              />
+              <ProductCare />
+            </div>
+
+            {/* Sustainability */}
+            <div style={DIVIDER}>
+              <ProductSustanibility />
             </div>
           </div>
         </div>

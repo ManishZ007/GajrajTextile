@@ -224,7 +224,7 @@ public class OAuthService {
 
                     ResponseEntity<Map<String, Object>> downstream = switch (role) {
                         case CUSTOMER -> {
-                            safeSendEmail(() -> notification.sendRegistrationEmailToCustomer(saved.getEmail(), saved.getFullName()));
+                            safeSendEmail(() -> notification.sendRegistrationEmail(saved.getEmail(), saved.getFullName(), saved.getRole().toString()));
                             yield  customer.saveNewUser(req);
                         }
                         case WORKER -> worker.savaNewUser(req);

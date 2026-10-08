@@ -612,8 +612,8 @@ export default function ReportsAll() {
     try {
       await ownerApproveReport(id);
       refresh();
-    } catch {
-      // silently fail
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Approval failed. Please retry.");
     } finally {
       setApproving(null);
     }

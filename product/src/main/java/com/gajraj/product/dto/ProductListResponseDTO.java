@@ -38,6 +38,16 @@ public class ProductListResponseDTO {
         private LocalDateTime createdAt;
         private Boolean customizable;
         private CustomOptions customOptions;
+        private List<AttributeSummary> attributes;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class AttributeSummary {
+        private UUID attributeId;
+        private String attributeKey;
+        private String attributeValue;
     }
 
     @Data

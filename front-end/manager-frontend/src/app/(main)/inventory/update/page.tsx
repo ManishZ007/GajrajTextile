@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePageTitle } from "@/hooks/usePagetitle";
-import { bulkUpdateStock, fetchInventory } from "@/lib/api/productApi";
+import { bulkUpdateStock, fetchCompleteInventory } from "@/lib/api/productApi";
 import { IconEmptyBox, IconLoader, IconSearch } from "@/providers/Icons";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -19,19 +19,19 @@ interface InventoryVariant {
   stockLevel: "GOOD" | "LOW" | "OUT_OF_STOCK";
 }
 
-const CHANGED_BY = "MANAGER";
+
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function stockQtyClass(qty: number) {
   if (qty === 0) return "text-red-500 font-medium";
-  if (qty <= 4) return "text-amber-500 font-medium";
+  if (qty <= 5) return "text-amber-500 font-medium";
   return "text-gray-700";
 }
 
 function previewStatusLabel(qty: number): { label: string; cls: string } {
   if (qty === 0) return { label: "Out of stock", cls: "bg-red-100 text-red-700" };
-  if (qty <= 4) return { label: "Low", cls: "bg-amber-100 text-amber-700" };
+  if (qty <= 5) return { label: "Low", cls: "bg-amber-100 text-amber-700" };
   return { label: "Good", cls: "bg-emerald-100 text-emerald-700" };
 }
 
@@ -41,6 +41,8 @@ export default function InventoryUpdate() {
   const title = usePageTitle();
 
   const [variants, setVariants] = useState<InventoryVariant[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [retry, setRetry] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Track changes: variantId → new quantity string
@@ -53,14 +55,15 @@ export default function InventoryUpdate() {
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
-    fetchInventory({ size: 1000 })
+    setLoading(true); setLoadError("");
+    fetchCompleteInventory()
       .then((data) => {
         const list = Array.isArray(data) ? data : (data.content ?? []);
         setVariants(list);
       })
-      .catch(() => {})
+      .catch(() => setLoadError("Could not load inventory. Please retry."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [retry]);
 
   const changedVariantIds = Object.keys(changes).filter(
     (id) => changes[id] !== "" && changes[id] !== undefined,
@@ -88,19 +91,20 @@ export default function InventoryUpdate() {
   async function handleSaveAll() {
     setSaveError("");
     setSuccessCount(null);
-    if (!hasChanges) return;
+    if (!hasChanges || saving || loadError) return;
     if (!reason.trim()) { setSaveError("Reason is required"); return; }
 
     const payload = changedVariantIds
-      .map((id) => ({ variantId: id, newQuantity: Number(changes[id]), reason: reason.trim(), changedBy: CHANGED_BY }))
-      .filter((item) => !isNaN(item.newQuantity) && item.newQuantity >= 0);
+      .map((id) => ({ variantId: id, newQuantity: Number(changes[id]), reason: reason.trim(), expectedQuantity: variants.find(v => v.variantId === id)!.stockQuantity }))
+;
+    if (payload.some(item => !Number.isInteger(item.newQuantity) || item.newQuantity < 0 || item.newQuantity > 2147483647)) { setSaveError("Enter non-negative whole quantities for every changed row"); return; }
 
     setSaving(true);
     try {
       await bulkUpdateStock(payload);
       setSuccessCount(payload.length);
       // Refresh variants list
-      const fresh = await fetchInventory({ size: 1000 });
+      const fresh = await fetchCompleteInventory();
       const list = Array.isArray(fresh) ? fresh : (fresh.content ?? []);
       setVariants(list);
       setChanges({});
@@ -166,7 +170,7 @@ export default function InventoryUpdate() {
 
       {/* ── Table ────────────────────────────────────────────────────────────── */}
       <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-2xl overflow-hidden">
-        {loading ? (
+        {loadError ? <p role="alert" className="p-6 text-red-600">{loadError} <button className="underline" onClick={() => setRetry(r => r + 1)}>Retry</button></p> : loading ? (
           <div className="flex items-center justify-center py-16 gap-3 text-gray-400">
             <IconLoader /><span className="text-sm">Loading variants...</span>
           </div>

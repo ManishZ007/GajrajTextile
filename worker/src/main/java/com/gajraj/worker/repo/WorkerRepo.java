@@ -45,5 +45,17 @@ public interface  WorkerRepo extends JpaRepository<Workers, UUID> {
 
     Workers findByUserId(String userId);
 
+    @Query("select w from Workers w left join w.verification v where w.createdByManagerId = :manager or (w.createdByManagerId is null and v.reason = 'Initial registration' and v.changeBy = :manager) or (v.changeBy = :manager and v.newStatus = :approved)")
+    Page<Workers> profileWorkers(@Param("manager") String manager, @Param("approved") com.gajraj.worker.model.WorkerVerification.VerificationStatus approved, Pageable page);
 
+    @Query("select count(w) from Workers w left join w.verification v where w.createdByManagerId = :manager or (w.createdByManagerId is null and v.reason = 'Initial registration' and v.changeBy = :manager)")
+    long countCreated(@Param("manager") String manager);
+
+    @Query("select count(w) from Workers w join w.verification v where v.changeBy = :manager and v.newStatus = :approved")
+    long countApproved(@Param("manager") String manager, @Param("approved") com.gajraj.worker.model.WorkerVerification.VerificationStatus approved);
+
+
+
+    @Query("select distinct w from Workers w left join w.verification v left join w.assignments a where w.createdByManagerId = :manager or (w.createdByManagerId is null and v.reason = 'Initial registration' and v.changeBy = :manager) or a.assignedBy = :managerUuid")
+    java.util.List<Workers> ownerActivity(@Param("manager") String manager, @Param("managerUuid") UUID managerUuid);
 }

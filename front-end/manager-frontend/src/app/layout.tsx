@@ -4,7 +4,7 @@ import QueryProvider from "@/providers/QueryProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GajrajConsole",
+  title: "GAJRAJ CONSOLE",
   description: "Manager admin panel for Gajraj Paithani",
 };
 

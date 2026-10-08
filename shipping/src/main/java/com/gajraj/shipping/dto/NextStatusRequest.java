@@ -8,4 +8,5 @@ public class NextStatusRequest {
 
     @NotBlank(message = "shipmentId is required")
     private String shipmentId;
+    private String expectedStatus;
 }

@@ -10,6 +10,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class StockUpdateDTO {
+    private Integer expectedQuantity;
     private Integer newQuantity;
     private Integer adjustmentAmount;
     private String reason;
@@ -20,6 +21,7 @@ public class StockUpdateDTO {
     @NoArgsConstructor
     public static class BulkStockUpdateItem {
         private UUID variantId;
+        private Integer expectedQuantity;
         private Integer newQuantity;
         private String reason;
         private String changedBy;

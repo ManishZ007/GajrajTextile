@@ -28,6 +28,7 @@ public class ProductCreateRequestDTO {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class VariantRequest {
+        private UUID variantId;
         private String size;
         private String color;
         private BigDecimal price;

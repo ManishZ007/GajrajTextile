@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import DispatchChecks from "@/components/Orders/DispatchChecks";
+import ShippingTimeline from "./ShippingTimeline";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   fetchOrderById,
@@ -11,9 +13,11 @@ import { fetchOrderFlow, OrderFlow } from "@/lib/api/orderFlowApi";
 import {
   getShipmentByOrderId,
   createShipment,
+  confirmCodCollection,
   ShipmentResponse,
   CreateShipmentPayload,
 } from "@/lib/api/shippingApi";
+import { apiFetch, ApiError } from "@/lib/api/apiFetch";
 import { fetchCustomerProfile } from "@/lib/api/customerApi";
 import {
   IconCheck,
@@ -24,24 +28,57 @@ import {
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+interface CustomerProfile {
+  authentication?: { auth?: { fullName?: string; email?: string; phoneNumber?: string } };
+  customer?: { addresses?: { id: string | number; street?: string; city?: string; state?: string; postalCode?: string; country?: string }[] };
+}
+interface ProductDetail {
+  name?: string;
+  images?: { viewUrl?: string }[];
+  variants?: { variantId: string; size?: string; color?: string; sku?: string }[];
+}
+interface PaymentSummary {
+  status?: string; paymentMethod?: string; amount?: number; currency?: string; paymentId?: string;
+}
+
+interface OrderItem {
+  orderItemId: string;
+  productId?: string;
+  variantId?: string;
+  quantity: number;
+  subtotal: number;
+  orderType: string;
+  currentStatus?: string;
+  trackingNumber?: string;
+  courierService?: string;
+  estimatedDelivery?: string;
+}
+
 interface OrderDetail {
+  paymentMethod?: string;
+  codCollected?: boolean;
+  integrationPending?: boolean;
+  shipmentStarted?: boolean;
+  readyMadeQuality?: string;
+  holdReason?: string;
   orderId: string;
   orderNumber: string;
   userId: string;
-  orderType: "READY_MADE" | "CUSTOM";
+  orderStatus: string;
   totalAmount: number;
-  status: string;
   orderDate: string;
   addressId?: string;
-  productId?: string;
-  variantId?: string;
-  padar?: string;
-  butti?: string;
-  kinar?: string;
-  zari?: string;
-  gond?: string;
-  baseColor?: string;
-  previewImage?: string;
+  handledByManagerId?: string;
+  items?: OrderItem[];
+  customization?: {
+    padar?: string;
+    butti?: string;
+    kinar?: string;
+    zari?: string;
+    gond?: string;
+    baseColor?: string;
+    previewImageUrl?: string;
+  };
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -226,8 +263,9 @@ function CreateShipmentModal({
         // Find the address matching the order's addressId
         const addr = order.addressId
           ? addresses.find((a) => String(a.id) === String(order.addressId))
-          : addresses[0];
+          : undefined;
 
+        if (!addr) setFetchError("The selected order address is unavailable. Verify the delivery address before creating a shipment.");
         setForm({
           recipientName: auth?.fullName ?? "",
           recipientPhone: auth?.phoneNumber ?? "",
@@ -265,7 +303,7 @@ function CreateShipmentModal({
     try {
       await onSave({
         orderId: order.orderId,
-        shipmentType: order.orderType === "READY_MADE" ? "READYMADE" : "CUSTOM",
+        shipmentType: order.items?.some((i) => i.orderType === "CUSTOM") ? "CUSTOM" : "READYMADE",
         recipientName: form.recipientName.trim(),
         recipientPhone: form.recipientPhone.trim(),
         recipientAddress: form.recipientAddress.trim(),
@@ -338,7 +376,7 @@ function CreateShipmentModal({
               </div>
               <div>
                 <label className={labelCls}>Type</label>
-                <input type="text" value={order.orderType === "READY_MADE" ? "READYMADE" : "CUSTOM"} readOnly className={`${inputCls} bg-gray-50 text-gray-400`} />
+                <input type="text" value={order.items?.some((i) => i.orderType === "CUSTOM") ? "CUSTOM" : "READYMADE"} readOnly className={`${inputCls} bg-gray-50 text-gray-400`} />
               </div>
             </div>
 
@@ -371,8 +409,9 @@ interface TimelineStep {
 }
 
 function buildTimeline(order: OrderDetail, flow: OrderFlow | null): TimelineStep[] {
-  const cancelled = order.status === "CANCELLED";
+  const cancelled = order.orderStatus === "CANCELLED";
   const stage = flow?.currentStage ?? null;
+  const hasCustom = order.items?.some((i) => i.orderType === "CUSTOM") ?? false;
 
   // Map currentStage → numeric progress index within the production block
   const STAGE_ORDER = [
@@ -408,19 +447,19 @@ function buildTimeline(order: OrderDetail, flow: OrderFlow | null): TimelineStep
   // ── Step 1: Confirmed ──────────────────────────────────────────────────────
   const confirmedDone =
     !cancelled &&
-    ["CONFIRMED", "IN_PROGRESS", "COMPLETED", "DELIVERED"].includes(order.status);
+    ["CONFIRMED", "IN_PROGRESS", "ON_HOLD", "COMPLETED", "DELIVERED"].includes(order.orderStatus);
   steps.push({
     label: "Confirmed",
     state: cancelled
       ? "future"
       : confirmedDone
         ? "done"
-        : order.status === "PENDING"
+        : order.orderStatus === "PENDING"
           ? "current"
           : "future",
   });
 
-  if (order.orderType === "CUSTOM") {
+  if (hasCustom) {
     // ── Step 2: Production assigned ──────────────────────────────────────────
     const assignedDone = flow != null && stageAtLeast("PRODUCTION_IN_PROGRESS");
     const assignedCurrent = flow != null && stageIs("AWAITING_START");
@@ -496,7 +535,7 @@ function buildTimeline(order: OrderDetail, flow: OrderFlow | null): TimelineStep
     });
 
     // ── Step 6: Shipped ───────────────────────────────────────────────────────
-    const shippedDone = stageIs("SHIPPED") || order.status === "DELIVERED";
+    const shippedDone = stageIs("SHIPPED") || order.orderStatus === "DELIVERED";
     steps.push({
       label: "Shipped",
       sublabel: undefined,
@@ -512,11 +551,11 @@ function buildTimeline(order: OrderDetail, flow: OrderFlow | null): TimelineStep
     // ── Step 7: Delivered ─────────────────────────────────────────────────────
     steps.push({
       label: "Delivered",
-      state: cancelled ? "future" : order.status === "DELIVERED" ? "done" : "future",
+      state: cancelled ? "future" : order.orderStatus === "DELIVERED" ? "done" : "future",
     });
   } else {
     // READY_MADE — simpler flow
-    const inProd = ["IN_PROGRESS", "COMPLETED", "DELIVERED"].includes(order.status);
+    const inProd = ["IN_PROGRESS", "COMPLETED", "DELIVERED"].includes(order.orderStatus);
 
     steps.push({
       label: "Quality check",
@@ -538,7 +577,7 @@ function buildTimeline(order: OrderDetail, flow: OrderFlow | null): TimelineStep
       sublabel: undefined,
       state: cancelled
         ? "future"
-        : stageIs("SHIPPED") || order.status === "DELIVERED"
+        : stageIs("SHIPPED") || order.orderStatus === "DELIVERED"
           ? "done"
           : stageIs("READY_FOR_SHIPPING")
             ? "current"
@@ -547,12 +586,12 @@ function buildTimeline(order: OrderDetail, flow: OrderFlow | null): TimelineStep
 
     steps.push({
       label: "Out for delivery",
-      state: cancelled ? "future" : order.status === "DELIVERED" ? "done" : "future",
+      state: cancelled ? "future" : order.orderStatus === "DELIVERED" ? "done" : "future",
     });
 
     steps.push({
       label: "Delivered",
-      state: cancelled ? "future" : order.status === "DELIVERED" ? "done" : "future",
+      state: cancelled ? "future" : order.orderStatus === "DELIVERED" ? "done" : "future",
     });
   }
 
@@ -561,7 +600,7 @@ function buildTimeline(order: OrderDetail, flow: OrderFlow | null): TimelineStep
 
 function Timeline({ order, flow }: { order: OrderDetail; flow: OrderFlow | null }) {
   const steps = buildTimeline(order, flow);
-  const cancelled = order.status === "CANCELLED";
+  const cancelled = order.orderStatus === "CANCELLED";
 
   return (
     <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-2xl p-5">
@@ -660,6 +699,13 @@ export default function OrderDetail() {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [flow, setFlow] = useState<OrderFlow | null>(null);
   const [shipment, setShipment] = useState<ShipmentResponse | null>(null);
+  const [profile, setProfile] = useState<CustomerProfile | null>(null);
+  const [products, setProducts] = useState<Record<string, ProductDetail>>({});
+  const [payment, setPayment] = useState<PaymentSummary | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [shipmentKnown, setShipmentKnown] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const requestId = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showCancel, setShowCancel] = useState(false);
@@ -667,20 +713,66 @@ export default function OrderDetail() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
-    load();
+    void load();
+    return () => { requestId.current++; };
   }, [orderId]);
 
-  async function load() {
-    setLoading(true);
+  useEffect(() => {
+    if (!order?.integrationPending) return;
+    const timer = setInterval(() => { if (!document.hidden) void load(true); }, 5000);
+    return () => clearInterval(timer);
+  }, [order?.integrationPending, orderId]);
+
+  async function load(silent = false) {
+    const request = ++requestId.current;
+    if (!silent) setLoading(true);
+    setError("");
+    setActionError("");
     try {
-      const data = await fetchOrderById(orderId);
+      const data: OrderDetail = await fetchOrderById(orderId);
+      const readyMadeOrder = !!data.items?.length && data.items.every(item => item.orderType === "READY_MADE");
+      const token = localStorage.getItem("access_token");
+      const ids = [...new Set((data.items ?? []).flatMap(item => item.productId ? [item.productId] : []))];
+      const [customerResult, flowResult, shipmentResult, paymentResult, productResults] = await Promise.all([
+        Promise.allSettled([fetchCustomerProfile(data.userId)]).then(r => r[0]),
+        Promise.allSettled([readyMadeOrder ? Promise.resolve(null) : fetchOrderFlow(orderId)]).then(r => r[0]),
+        Promise.allSettled([getShipmentByOrderId(orderId)]).then(r => r[0]),
+        Promise.allSettled([apiFetch(`http://localhost:8088/payment/manager/orders/${orderId}`, {
+          headers: { Authorization: `Bearer ${token ?? ""}` },
+        })]).then(r => r[0]),
+        Promise.allSettled(ids.map(id => apiFetch(`http://localhost:8087/product/detail/${id}`))),
+      ]);
+      if (request !== requestId.current) return;
+      const notices: string[] = [];
+      const missingShipment = shipmentResult.status === "rejected" && shipmentResult.reason instanceof ApiError && shipmentResult.reason.status === 404;
+      setShipmentKnown(shipmentResult.status === "fulfilled" || missingShipment);
+      setShipment(shipmentResult.status === "fulfilled" ? shipmentResult.value : null);
+      if (shipmentResult.status === "rejected" && !missingShipment) notices.push("Shipping unavailable. Shipment creation is disabled until refreshed.");
+      setProfile(customerResult.status === "fulfilled" ? customerResult.value : null);
+      if (customerResult.status === "rejected") notices.push("Customer information unavailable.");
+      setFlow(flowResult.status === "fulfilled" ? flowResult.value : null);
+      if (flowResult.status === "rejected") notices.push(flowResult.reason instanceof ApiError
+        ? flowResult.reason.status === 404 ? "Production record not created yet; order synchronization may be pending."
+          : `Production timeline failed (HTTP ${flowResult.reason.status}): ${flowResult.reason.message}`
+        : "Cannot reach Manager Service on port 8085 for the production timeline.");
+      setPayment(paymentResult.status === "fulfilled" ? paymentResult.value : null);
+      if (paymentResult.status === "rejected") {
+        const reason = paymentResult.reason;
+        notices.push(reason instanceof ApiError
+          ? reason.status === 404 ? "Payment record not found yet; synchronization may still be pending."
+            : `Payment lookup failed (HTTP ${reason.status}): ${reason.message}`
+          : "Cannot reach Payment Service from the browser. Check port 8088 and CORS; restart Payment Service after rebuilding.");
+      }
+      const details: Record<string, ProductDetail> = {};
+      productResults.forEach((result, i) => { if (result.status === "fulfilled") details[ids[i]] = result.value; });
+      if (productResults.some(result => result.status === "rejected")) notices.push("Some product details unavailable; original order amounts are shown.");
+      setProducts(details);
+      setWarnings(notices);
       setOrder(data);
-      fetchOrderFlow(orderId).then((f: OrderFlow) => setFlow(f)).catch(() => setFlow(null));
-      getShipmentByOrderId(orderId).then((s: ShipmentResponse) => setShipment(s)).catch(() => setShipment(null));
-    } catch {
-      setError("Failed to load order");
+    } catch (error) {
+      if (request === requestId.current) setError(error instanceof Error ? error.message : "Failed to load order");
     } finally {
-      setLoading(false);
+      if (request === requestId.current) setLoading(false);
     }
   }
 
@@ -694,11 +786,19 @@ export default function OrderDetail() {
     try {
       await updateOrderStatus(orderId, status);
       await load();
-    } catch {
-      // Status update failed silently — could add toast here
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Could not update order status");
     } finally {
       setUpdatingStatus(false);
     }
+  }
+
+  async function handleCodCollection() {
+    if (!shipment || !window.confirm(`Confirm that Rs ${shipment.codAmount} cash was received in full?`)) return;
+    setUpdatingStatus(true);
+    try { await confirmCodCollection(shipment.shipmentId); await load(); }
+    catch (error) { window.alert(error instanceof Error ? error.message : "Could not confirm cash collection"); }
+    finally { setUpdatingStatus(false); }
   }
 
   async function handleShippingSave(data: CreateShipmentPayload) {
@@ -746,20 +846,26 @@ export default function OrderDetail() {
     );
   }
 
-  const ALL_STATUSES = [
-    "PENDING",
-    "CONFIRMED",
-    "IN_PROGRESS",
-    "ON_HOLD",
-    "COMPLETED",
-    "CANCELLED",
-    "DELIVERED",
-  ];
+  const transitions: Record<string, string[]> = {
+    CONFIRMED: ["IN_PROGRESS", "ON_HOLD", "COMPLETED"],
+    IN_PROGRESS: ["ON_HOLD", "COMPLETED"], ON_HOLD: ["IN_PROGRESS"],
+  };
+  const readyMade = !!order.items?.length && order.items.every(item => item.orderType === "READY_MADE");
+  const options = (transitions[order.orderStatus] ?? []).filter(status => !readyMade ||
+    (status !== "ON_HOLD" && order.orderStatus !== "ON_HOLD" && (status !== "COMPLETED" || order.readyMadeQuality === "APPROVED")));
+  const ALL_STATUSES = [order.orderStatus, ...options];
+  const customer = profile?.authentication?.auth;
+  const address = profile?.customer?.addresses?.find(a => String(a.id) === String(order.addressId));
+  const canShip = shipmentKnown && !shipment && !order.integrationPending && (!readyMade || order.readyMadeQuality === "APPROVED" || order.shipmentStarted) && ["CONFIRMED", "IN_PROGRESS", "COMPLETED"].includes(order.orderStatus);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col gap-5">
+      {(warnings.length > 0 || actionError) && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        {actionError && <p>{actionError}</p>}{warnings.map(w => <p key={w}>{w}</p>)}
+      </div>}
+      <button onClick={() => void load()} className="self-end text-sm underline">Refresh details</button>
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <button
@@ -771,13 +877,12 @@ export default function OrderDetail() {
         <span className="font-mono font-semibold text-gray-800 text-lg">
           {order.orderNumber}
         </span>
-        <StatusPill status={order.status} />
-        <TypeBadge type={order.orderType} />
+        <StatusPill status={order.orderStatus} />
 
         <div className="ml-auto flex items-center gap-2">
           {/* Status change dropdown */}
           <Select
-            value={order.status}
+            value={order.orderStatus}
             onChange={handleStatusChange}
             className={updatingStatus ? "opacity-50 pointer-events-none" : ""}
           >
@@ -789,7 +894,7 @@ export default function OrderDetail() {
           </Select>
 
           {/* Cancel — only when pending */}
-          {order.status === "PENDING" && (
+          {order.orderStatus === "PENDING" && (
             <button
               onClick={() => setShowCancel(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-red-300 text-red-600 rounded-xl hover:bg-red-50 transition-colors"
@@ -801,7 +906,7 @@ export default function OrderDetail() {
       </div>
 
       {/* Info cards row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Customer */}
         <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-2xl p-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
@@ -814,7 +919,9 @@ export default function OrderDetail() {
             </p>
           </div>
           <p className="text-[11px] text-gray-400 mt-3 italic">
-            Name, email, phone — coming with Customer Service integration
+            {customer?.fullName ?? "Customer name unavailable"}<br />
+            {customer?.email ?? "Email unavailable"}<br />
+            {customer?.phoneNumber ?? "Phone unavailable"}
           </p>
         </div>
 
@@ -830,7 +937,7 @@ export default function OrderDetail() {
                 {order.addressId}
               </p>
               <p className="text-[11px] text-gray-400 mt-3 italic">
-                Full address — coming with Customer Service integration
+                {address ? [address.street, address.city, address.state, address.postalCode, address.country].filter(Boolean).join(", ") : "Selected address unavailable. It may have been removed."}
               </p>
             </>
           ) : (
@@ -847,88 +954,106 @@ export default function OrderDetail() {
             {formatINR(order.totalAmount)}
           </p>
           <div className="flex items-center gap-2 mt-2">
-            <TypeBadge type={order.orderType} />
+            <span className="text-xs">{order.paymentMethod ?? "Payment"}</span>
             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-              Pending
+              {order.paymentMethod === "COD" ? (order.orderStatus === "CANCELLED" ? "Cancelled" : order.codCollected || shipment?.codCollected ? "Cash collected" : "Awaiting cash collection") : payment?.status?.replace(/_/g, " ") ?? "Status unavailable"}
             </span>
           </div>
+          {order.paymentMethod === "COD" && <p className="text-xs text-gray-500 mt-2">Payment record: {payment?.status?.replace(/_/g, " ") ?? "Unavailable"}</p>}
           <p className="text-[11px] text-gray-400 mt-3 italic">
-            Payment status — coming with Payment Service integration
+            {order.integrationPending ? "Service synchronization pending; retrying automatically." : order.paymentMethod === "COD" ? (order.codCollected || shipment?.codCollected ? "Cash collection confirmed." : "Cash receipt must be confirmed after delivery.") : payment?.paymentId ? `Payment ID: ${payment.paymentId}` : "No transaction ID available."}
           </p>
         </div>
       </div>
 
-      {/* Product / customization + Shipping row */}
-      <div className="grid grid-cols-[1fr_320px] gap-4">
-        {/* Product / customization */}
-        {order.orderType === "READY_MADE" ? (
-          <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-2xl p-5">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
-              Product details
+      {/* Items + Shipping row */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
+        {/* Order items table */}
+        <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              Order items
+              {order.items && order.items.length > 0 && (
+                <span className="ml-2 text-gray-500 normal-case font-normal">({order.items.length})</span>
+              )}
             </p>
-            <div className="flex flex-col gap-3">
-              {order.productId && (
-                <div>
-                  <p className="text-[11px] text-gray-400 mb-0.5">Product ID</p>
-                  <p className="font-mono text-sm text-gray-700">
-                    {order.productId}
-                  </p>
+          </div>
+          {!order.items || order.items.length === 0 ? (
+            <p className="px-5 py-6 text-sm text-gray-400 italic">No items found</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-[11px] uppercase tracking-wide text-gray-400 font-medium">
+                  <th className="text-left px-5 py-3">Product</th>
+                  <th className="text-left px-5 py-3">Variant</th>
+                  <th className="text-left px-5 py-3">Type</th>
+                  <th className="text-left px-5 py-3">Qty</th>
+                  <th className="text-left px-5 py-3">Subtotal</th>
+                  <th className="text-left px-5 py-3">Item status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {order.items.map((item, i) => (
+                  <tr key={item.orderItemId ?? i} className="border-t border-gray-50">
+                    <td className="px-5 py-3 font-mono text-xs text-gray-600">
+                      {products[item.productId ?? ""]?.images?.[0]?.viewUrl && <img src={products[item.productId ?? ""].images![0].viewUrl} alt="" className="h-12 w-12 rounded object-cover mb-1" />}
+                      <p>{products[item.productId ?? ""]?.name ?? "Product unavailable"}</p>
+                      <span title={item.productId}>{item.productId ? item.productId.slice(0, 12) + "…" : "—"}</span>
+                    </td>
+                    <td className="px-5 py-3 font-mono text-xs text-gray-600">
+                      <p>{(() => { const variant = products[item.productId ?? ""]?.variants?.find(v => v.variantId === item.variantId); return variant ? [variant.color, variant.size, variant.sku].filter(Boolean).join(" / ") : "Variant unavailable"; })()}</p>
+                      <span title={item.variantId}>{item.variantId ? item.variantId.slice(0, 12) + "…" : "—"}</span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <TypeBadge type={item.orderType ?? "READY_MADE"} />
+                    </td>
+                    <td className="px-5 py-3 text-gray-700 font-medium">{item.quantity}</td>
+                    <td className="px-5 py-3 font-semibold text-gray-800">
+                      {formatINR(item.subtotal)}
+                    </td>
+                    <td className="px-5 py-3">
+                      <StatusPill status={item.currentStatus ?? "PENDING"} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-gray-200 bg-white/30">
+                  <td colSpan={4} className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</td>
+                  <td colSpan={2} className="px-5 py-3 font-bold text-gray-800">{formatINR(order.totalAmount)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
+
+          {/* Customization block — shown if any item is CUSTOM */}
+          {order.customization && order.items?.some((i) => i.orderType === "CUSTOM") && (
+            <div className="px-5 py-4 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Customization</p>
+              <div className="grid grid-cols-3 gap-x-8 gap-y-2">
+                {[
+                  { label: "Padar", value: order.customization.padar },
+                  { label: "Butti", value: order.customization.butti },
+                  { label: "Kinar", value: order.customization.kinar },
+                  { label: "Zari", value: order.customization.zari },
+                  { label: "Gond", value: order.customization.gond },
+                  { label: "Base color", value: order.customization.baseColor },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <p className="text-[11px] text-gray-400 mb-0.5">{label}</p>
+                    <p className="text-sm font-medium text-gray-700">{value || "—"}</p>
+                  </div>
+                ))}
+              </div>
+              {order.customization.previewImageUrl && (
+                <div className="mt-3">
+                  <p className="text-[11px] text-gray-400 mb-1.5">3D Preview</p>
+                  <img src={order.customization.previewImageUrl} alt="preview" className="w-28 h-28 object-cover rounded-xl border border-gray-200" />
                 </div>
               )}
-              {order.variantId && (
-                <div>
-                  <p className="text-[11px] text-gray-400 mb-0.5">Variant ID</p>
-                  <p className="font-mono text-sm text-gray-700">
-                    {order.variantId}
-                  </p>
-                </div>
-              )}
-              <div>
-                <p className="text-[11px] text-gray-400 mb-0.5">Amount</p>
-                <p className="text-sm font-semibold text-gray-800">
-                  {formatINR(order.totalAmount)}
-                </p>
-              </div>
-              <p className="text-[11px] text-gray-400 italic">
-                Product name, image, size/color — coming with Product Service
-                integration
-              </p>
             </div>
-          </div>
-        ) : (
-          <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-2xl p-5">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
-              Customization details
-            </p>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-              {[
-                { label: "Padar", value: order.padar },
-                { label: "Butti", value: order.butti },
-                { label: "Kinar", value: order.kinar },
-                { label: "Zari", value: order.zari },
-                { label: "Gond", value: order.gond },
-                { label: "Base color", value: order.baseColor },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <p className="text-[11px] text-gray-400 mb-0.5">{label}</p>
-                  <p className="text-sm font-medium text-gray-700">
-                    {value || <span className="text-gray-300 italic">—</span>}
-                  </p>
-                </div>
-              ))}
-            </div>
-            {order.previewImage && (
-              <div className="mt-4">
-                <p className="text-[11px] text-gray-400 mb-1.5">3D Preview</p>
-                <img
-                  src={order.previewImage}
-                  alt="Customization preview"
-                  className="w-32 h-32 object-cover rounded-xl border border-gray-200"
-                />
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Shipping details */}
         <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-2xl p-5 flex flex-col gap-3">
@@ -936,7 +1061,7 @@ export default function OrderDetail() {
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
               Shipping
             </p>
-            {!shipment && (
+            {canShip && (
               <button
                 onClick={() => setShowShipping(true)}
                 className="text-xs font-medium text-gray-500 border border-gray-200 px-2.5 py-1 rounded-lg hover:bg-gray-50 transition-colors"
@@ -962,6 +1087,14 @@ export default function OrderDetail() {
                   <p className="text-sm text-gray-700">{formatDate(shipment.estimatedDelivery)}</p>
                 </div>
               )}
+              {shipment.paymentMethod === "COD" && (
+                <div className="text-sm space-y-2">
+                  <p>Cash on delivery: Rs {shipment.codAmount} — {shipment.codCollected ? "Collected" : "Awaiting collection"}</p>
+                  {shipment.shipmentStatus === "DELIVERED" && !shipment.codCollected && (
+                    <button disabled={updatingStatus} onClick={handleCodCollection} className="rounded bg-black px-3 py-2 text-white disabled:opacity-50">Confirm cash received</button>
+                  )}
+                </div>
+              )}
               <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full w-fit ${statusStyles[shipment.shipmentStatus] ?? "bg-gray-100 text-gray-600"}`}>
                 {shipment.shipmentStatus.replace(/_/g, " ")}
               </span>
@@ -974,14 +1107,16 @@ export default function OrderDetail() {
           ) : (
             <div className="flex flex-col items-center justify-center flex-1 gap-2 text-gray-300 py-4">
               <IconPackage />
-              <p className="text-sm text-gray-400">No shipment created yet</p>
+              <p className="text-sm text-gray-400">{shipmentKnown ? "No shipment created yet" : "Shipping information unavailable"}</p>
             </div>
           )}
         </div>
       </div>
 
+      {readyMade && <div id="dispatch-checks"><DispatchChecks order={order} onChanged={load} /></div>}
+      <ShippingTimeline orderId={orderId} onDelivered={() => { if (order.orderStatus !== "DELIVERED") void load(); }} />
       {/* Timeline */}
-      <Timeline order={order} flow={flow} />
+      {!readyMade && <Timeline order={order} flow={flow} />}
 
       {/* Modals */}
       {showCancel && (

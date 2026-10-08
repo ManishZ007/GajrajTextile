@@ -36,7 +36,9 @@ public class Security {
                 .sessionManagement(AbstractHttpConfigurer::disable);
 
         httpSecurity.authorizeHttpRequests(registry -> registry
+                .requestMatchers("/owner/**").hasRole("OWNER")
                 .requestMatchers("/internal/**").permitAll()
+                .requestMatchers("/manager/profile/**", "/manger-worker/verify/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
                 .requestMatchers("/manger-worker/**").permitAll()
                 .requestMatchers("/getWorker").permitAll()
                 .anyRequest()

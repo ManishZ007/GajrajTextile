@@ -24,6 +24,7 @@ public class PaymentController {
     public ResponseEntity<Map<String, Object>> createOrder(@RequestBody CreateOrderRequest request) {
         try {
             Map<String, Object> response = paymentService.createOrder(request);
+            System.out.println(response);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (RazorpayException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -47,5 +48,10 @@ public class PaymentController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Verification error: " + e.getMessage()));
         }
+    }
+
+    @PostMapping("/failure")
+    public ResponseEntity<?> failure(@RequestBody Map<String,String> request) throws RazorpayException {
+        return ResponseEntity.ok(paymentService.reportFailure(request.get("razorpayOrderId")));
     }
 }

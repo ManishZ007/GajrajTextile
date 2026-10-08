@@ -339,7 +339,7 @@ export default function OrderFlowDetail() {
     try {
       await fn();
       if (orderStatus) {
-        await updateOrderStatus(orderId, orderStatus).catch(() => {});
+        await updateOrderStatus(orderId, orderStatus);
       }
       await load();
     } catch (err: unknown) {

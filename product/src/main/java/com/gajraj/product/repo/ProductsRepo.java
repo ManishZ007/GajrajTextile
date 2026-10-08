@@ -9,5 +9,9 @@ import java.util.UUID;
 
 public interface ProductsRepo extends JpaRepository<Products, UUID>, JpaSpecificationExecutor<Products> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select p from Products p where p.productId = :id")
+    java.util.Optional<Products> lockForPrice(@org.springframework.data.repository.query.Param("id") UUID id);
+
     int countByCategory(ProductCategories category);
 }

@@ -12,6 +12,10 @@ import java.util.UUID;
 
 public interface ProductVariantsRepo extends JpaRepository<ProductVariants, UUID>, JpaSpecificationExecutor<ProductVariants> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select v from ProductVariants v where v.variantId = :id")
+    Optional<ProductVariants> lockStock(@Param("id") UUID id);
+
     int countByProduct(Products product);
 
     @Query("SELECT COALESCE(SUM(v.stockQuantity), 0) FROM ProductVariants v WHERE v.product = :product")
@@ -27,7 +31,7 @@ public interface ProductVariantsRepo extends JpaRepository<ProductVariants, UUID
 
     long countByStockQuantityGreaterThan(int quantity);
 
-    @Query("SELECT COUNT(v) FROM ProductVariants v WHERE v.stockQuantity > 0 AND v.stockQuantity < 5")
+    @Query("SELECT COUNT(v) FROM ProductVariants v WHERE v.stockQuantity > 0 AND v.stockQuantity <= 5")
     long countLowStock();
 
     @Query("SELECT COALESCE(SUM(v.stockQuantity), 0) FROM ProductVariants v")

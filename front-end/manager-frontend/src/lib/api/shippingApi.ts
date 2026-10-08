@@ -8,6 +8,9 @@ function authHeader(): Record<string, string> {
 }
 
 export interface ShipmentResponse {
+  paymentMethod?: string;
+  codAmount?: number;
+  codCollected?: boolean;
   shipmentId: string;
   orderId: string;
   userId: string;
@@ -67,11 +70,11 @@ export function createShipment(data: CreateShipmentPayload): Promise<ShipmentRes
   });
 }
 
-export function advanceMockStatus(shipmentId: string): Promise<ShipmentResponse> {
+export function advanceMockStatus(shipmentId: string, expectedStatus?: string): Promise<ShipmentResponse> {
   return apiFetch(`${BASE}/shipping/mock/next-status`, {
     method: "POST",
     headers: authHeader(),
-    body: JSON.stringify({ shipmentId }),
+    body: JSON.stringify({ shipmentId, expectedStatus }),
   });
 }
 
@@ -80,5 +83,11 @@ export function cancelShipment(shipmentId: string, reason?: string): Promise<Shi
     method: "POST",
     headers: authHeader(),
     body: JSON.stringify({ shipmentId, reason }),
+  });
+}
+
+export function confirmCodCollection(shipmentId: string): Promise<ShipmentResponse> {
+  return apiFetch(`${BASE}/shipping/${shipmentId}/cod-collected`, {
+    method: "POST", headers: authHeader(),
   });
 }

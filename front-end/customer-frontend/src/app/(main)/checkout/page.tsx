@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin,
@@ -55,54 +56,42 @@ const STEPS = ['BAG', 'ADDRESS', 'PAYMENT'] as const;
 
 function CheckoutSteps({ currentStep = 1 }: { currentStep?: number }) {
   return (
-    <div
-      className="w-full border-b"
-      style={{
-        background: 'var(--color-surface)',
-        borderColor: 'var(--color-border)',
-        fontFamily: 'Switzer', fontWeight: 500,
-      }}
-    >
-      <div className="max-w-6xl mx-auto px-4 sm:px-10 h-11 flex items-center relative">
-        <div className="flex items-center mx-auto">
+    <div className="w-full border-b border-black/8 bg-white">
+      <div className="px-6 md:px-12 h-10 flex items-center justify-between relative">
+        <div className="flex items-center gap-5 mx-auto">
           {STEPS.map((step, i) => {
             const isActive = i === currentStep;
             const isDone = i < currentStep;
             return (
-              <div key={step} className="flex items-center">
+              <div key={step} className="flex items-center gap-5">
                 <div className="flex flex-col items-center">
                   <span
-                    className="text-[10px] sm:text-[11px] font-semibold tracking-[2px] transition-colors duration-300"
+                    className="text-[0.6rem] tracking-[2px] uppercase transition-colors duration-200"
                     style={{
                       color: isActive
-                        ? 'var(--color-text)'
+                        ? '#1B1B1B'
                         : isDone
-                          ? 'var(--color-text-muted)'
-                          : 'var(--color-text-subtle)',
+                          ? 'rgba(27,27,27,0.45)'
+                          : 'rgba(27,27,27,0.2)',
                     }}
                   >
                     {step}
                   </span>
-                  <motion.div
-                    animate={{
-                      scaleX: isActive ? 1 : 0,
-                      opacity: isActive ? 1 : 0,
-                    }}
-                    transition={{ duration: 0.3 }}
-                    className="h-0.5 w-full mt-0.5 origin-left rounded-full"
-                    style={{ background: 'var(--color-text)' }}
+                  <div
+                    className="h-px w-full mt-0.5 transition-all duration-300"
+                    style={{ background: isActive ? '#1B1B1B' : 'transparent' }}
                   />
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div className="flex items-center mx-3 sm:mx-5 pb-1">
-                    {Array.from({ length: 6 }).map((_, d) => (
+                  <div className="flex gap-0.5 pb-1">
+                    {Array.from({ length: 5 }).map((_, d) => (
                       <span
                         key={d}
-                        className="w-1.5 h-px mx-px rounded-full"
+                        className="w-1 h-px"
                         style={{
                           background: isDone
-                            ? 'var(--color-text-muted)'
-                            : 'var(--color-border-strong)',
+                            ? 'rgba(27,27,27,0.25)'
+                            : 'rgba(27,27,27,0.1)',
                         }}
                       />
                     ))}
@@ -112,16 +101,13 @@ function CheckoutSteps({ currentStep = 1 }: { currentStep?: number }) {
             );
           })}
         </div>
-        <div className="flex items-center gap-1.5 absolute right-4 sm:right-10">
+        <div className="flex items-center gap-1.5 absolute right-6 md:right-12">
           <ShieldCheck
             strokeWidth={1.5}
-            className="w-3.5 h-3.5 text-emerald-500"
+            className="w-3 h-3 text-[#1B1B1B]/25"
           />
-          <span
-            className="hidden sm:block text-[10px] font-semibold tracking-[1.5px] uppercase"
-            style={{ color: 'var(--color-text-subtle)' }}
-          >
-            100% Secure
+          <span className="hidden sm:block text-[0.6rem] tracking-[1.5px] uppercase text-[#1B1B1B]/25">
+            Secure
           </span>
         </div>
       </div>
@@ -131,60 +117,58 @@ function CheckoutSteps({ currentStep = 1 }: { currentStep?: number }) {
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
-const shimmer = {
-  background: 'linear-gradient(90deg,#EDE8E3 25%,#F5F1EC 50%,#EDE8E3 75%)',
-  backgroundSize: '200% 100%',
-  animation: 'skeleton-shimmer 1.6s infinite',
-} as const;
-
 function CheckoutSkeleton() {
   return (
-    <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto px-4 sm:px-8 pt-6 pb-16">
-      <div className="flex-1 flex flex-col gap-4">
-        <div
-          className="rounded-2xl p-5 border"
-          style={{
-            background: 'var(--color-surface)',
-            borderColor: 'var(--color-border)',
-          }}
-        >
-          <div className="h-3 w-32 rounded mb-4" style={shimmer} />
-          <div className="flex flex-col gap-2.5">
-            <div className="h-4 w-48 rounded" style={shimmer} />
-            <div className="h-3 w-36 rounded" style={shimmer} />
-            <div className="h-3 w-40 rounded" style={shimmer} />
-          </div>
-        </div>
-        {[1, 2].map((i) => (
+    <div className="max-w-5xl mx-auto w-full px-6 md:px-10 pt-10 pb-16 flex flex-col lg:flex-row gap-10 lg:gap-14">
+      <div className="flex-1 flex flex-col gap-7">
+        {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="rounded-2xl p-4 border"
-            style={{
-              background: 'var(--color-surface)',
-              borderColor: 'var(--color-border)',
-            }}
+            className="flex flex-col gap-3 border-b border-black/8 pb-7"
           >
-            <div className="h-4 w-20 rounded mb-3" style={shimmer} />
-            <div className="h-3 w-full rounded mb-2" style={shimmer} />
-            <div className="h-3 w-2/3 rounded" style={shimmer} />
+            <div
+              className="h-2.5 w-20 rounded-sm"
+              style={{
+                background: 'rgba(27,27,27,0.05)',
+                animation: 'skeleton-shimmer 1.6s infinite',
+              }}
+            />
+            <div
+              className="h-3.5 w-48 rounded-sm"
+              style={{
+                background: 'rgba(27,27,27,0.05)',
+                animation: 'skeleton-shimmer 1.6s 0.1s infinite',
+              }}
+            />
+            <div
+              className="h-2.5 w-36 rounded-sm"
+              style={{
+                background: 'rgba(27,27,27,0.05)',
+                animation: 'skeleton-shimmer 1.6s 0.2s infinite',
+              }}
+            />
           </div>
         ))}
       </div>
-      <div className="lg:w-80">
-        <div
-          className="rounded-2xl p-5 border"
-          style={{
-            background: 'var(--color-surface)',
-            borderColor: 'var(--color-border)',
-          }}
-        >
-          <div className="h-3 w-24 rounded mb-4" style={shimmer} />
-          <div className="flex flex-col gap-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-3 w-full rounded" style={shimmer} />
-            ))}
-          </div>
-          <div className="h-12 w-full rounded-2xl mt-5" style={shimmer} />
+      <div className="lg:w-72 xl:w-80 shrink-0">
+        <div className="border border-black/8 px-8 py-10 flex flex-col gap-5">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="h-3 w-full rounded-sm"
+              style={{
+                background: 'rgba(27,27,27,0.05)',
+                animation: `skeleton-shimmer 1.6s ${i * 0.1}s infinite`,
+              }}
+            />
+          ))}
+          <div
+            className="h-12 w-full mt-2 rounded-sm"
+            style={{
+              background: 'rgba(27,27,27,0.05)',
+              animation: 'skeleton-shimmer 1.6s infinite',
+            }}
+          />
         </div>
       </div>
     </div>
@@ -204,126 +188,68 @@ function AddressCard({
 }) {
   const Icon = getLabelIcon(address.label);
   return (
-    <motion.button
-      layout
+    <button
       onClick={onSelect}
-      whileTap={{ scale: 0.99 }}
-      className="w-full text-left rounded-2xl p-4 border transition-all duration-200 cursor-pointer relative"
+      className="w-full text-left p-4 border transition-all duration-200 cursor-pointer"
       style={{
-        background: selected ? 'rgba(10,10,10,0.03)' : 'var(--color-surface)',
-        borderColor: selected ? 'var(--color-text)' : 'var(--color-border)',
+        borderColor: selected ? '#1B1B1B' : 'rgba(27,27,27,0.1)',
         borderWidth: selected ? '1.5px' : '1px',
       }}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-4">
         {/* Icon */}
         <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-          style={{
-            background: selected
-              ? 'var(--color-text)'
-              : 'var(--color-surface-muted)',
-          }}
+          className="w-8 h-8 flex items-center justify-center shrink-0 mt-0.5"
+          style={{ background: selected ? '#1B1B1B' : 'rgba(27,27,27,0.04)' }}
         >
           <Icon
             strokeWidth={1.5}
-            className="w-4 h-4"
-            style={{
-              color: selected
-                ? 'var(--color-accent-text)'
-                : 'var(--color-text-muted)',
-            }}
+            className="w-3.5 h-3.5"
+            style={{ color: selected ? 'white' : 'rgba(27,27,27,0.35)' }}
           />
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span
-              className="text-[12px] font-semibold uppercase tracking-wider"
-              style={{ color: 'var(--color-text)' }}
-            >
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="text-[0.7rem] tracking-[1.5px] uppercase text-[#1B1B1B] font-light">
               {address.label}
             </span>
             {address.isDefault && (
-              <span
-                className="text-[9px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                style={{
-                  background: 'rgba(0,0,0,0.06)',
-                  color: 'var(--color-text-muted)',
-                }}
-              >
+              <span className="text-[0.6rem] tracking-[1px] uppercase text-[#1B1B1B]/70 border border-black/55 px-1.5 py-0.5">
                 Default
               </span>
             )}
           </div>
-          <p
-            className="text-[13px] mt-1 leading-snug"
-            style={{ color: 'var(--color-text)' }}
-          >
+          <p className="text-[13px] font-light text-[#1B1B1B] leading-snug mb-0.5">
             {address.street}
           </p>
-          <p
-            className="text-[12px] mt-0.5"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
+          <p className="text-[12px] font-light text-[#1B1B1B]/75">
             {toCapitalCase(address.city)}, {toCapitalCase(address.state)} —{' '}
-            <span style={{ fontFamily: 'Switzer', fontWeight: 500 }}>
-              {address.postalCode}
-            </span>
+            {address.postalCode}
           </p>
-          <p
-            className="text-[12px]"
-            style={{ color: 'var(--color-text-subtle)' }}
-          >
+          <p className="text-[12px] font-light text-[#1B1B1B]/75">
             {toCapitalCase(address.country)}
           </p>
         </div>
 
-        {/* Selected indicator */}
+        {/* Radio indicator */}
         <div
-          className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-1 transition-all duration-200"
+          className="w-4 h-4 border flex items-center justify-center shrink-0 mt-1 transition-all duration-200"
           style={{
-            borderColor: selected
-              ? 'var(--color-text)'
-              : 'var(--color-border-strong)',
-            background: selected ? 'var(--color-text)' : 'transparent',
+            borderColor: selected ? '#1B1B1B' : 'rgba(27,27,27,0.15)',
+            background: selected ? '#1B1B1B' : 'transparent',
           }}
         >
           {selected && (
-            <Check
-              strokeWidth={2.5}
-              className="w-2.5 h-2.5"
-              style={{ color: 'var(--color-accent-text)' }}
-            />
+            <Check strokeWidth={2.5} className="w-2.5 h-2.5 text-white" />
           )}
         </div>
       </div>
-    </motion.button>
+    </button>
   );
 }
 
 // ─── Add Address Form ─────────────────────────────────────────────────────────
-
-const INPUT_STYLE = {
-  background: 'var(--color-surface)',
-  border: '1px solid var(--color-border-strong)',
-  color: 'var(--color-text)',
-  borderRadius: '12px',
-  padding: '10px 14px',
-  fontSize: '13px',
-  width: '100%',
-  outline: 'none',
-} as const;
-
-const LABEL_STYLE = {
-  fontSize: '10px',
-  fontWeight: 600,
-  letterSpacing: '1.5px',
-  textTransform: 'uppercase' as const,
-  color: 'var(--color-text-subtle)',
-  marginBottom: '6px',
-  display: 'block',
-};
 
 function AddAddressForm({
   onSave,
@@ -352,39 +278,32 @@ function AddAddressForm({
     await onSave(form);
   };
 
+  const inputCls =
+    'w-full border-b border-black/15 bg-transparent text-[13.5px] font-light text-[#1B1B1B] pb-3 pt-1 outline-none focus:border-[#1B1B1B] placeholder:text-[#1B1B1B]/25 transition-colors duration-200';
+  const labelCls =
+    'block text-[0.7rem] tracking-[1.5px] uppercase text-[#1B1B1B]/75 mb-2';
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: -10 }}
+      initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
+      exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.2 }}
-      className="rounded-2xl p-5 border"
-      style={{
-        background: 'var(--color-surface)',
-        borderColor: 'var(--color-border)',
-      }}
+      className="border border-black/8 p-6"
     >
-      <p
-        className="text-[11px] font-semibold uppercase tracking-widest mb-4"
-        style={{ color: 'var(--color-text-subtle)' }}
-      >
+      <p className="text-[0.725rem] tracking-[1.5px] uppercase text-[#1B1B1B]/95 mb-7">
         New Address
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Label select */}
         <div>
-          <label style={LABEL_STYLE}>Label</label>
+          <label className={labelCls}>Label</label>
           <div className="relative">
             <select
               value={form.label}
               onChange={(e) => set('label', e.target.value)}
-              style={{
-                ...INPUT_STYLE,
-                appearance: 'none',
-                paddingRight: '36px',
-                cursor: 'pointer',
-              }}
+              className={inputCls + ' appearance-none pr-6 cursor-pointer'}
             >
               {LABEL_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
@@ -393,102 +312,92 @@ function AddAddressForm({
               ))}
             </select>
             <ChevronDown
-              strokeWidth={1.8}
-              className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-              style={{ color: 'var(--color-text-subtle)' }}
+              strokeWidth={1.5}
+              className="w-3.5 h-3.5 absolute right-0 top-1 pointer-events-none text-[#1B1B1B]/90"
             />
           </div>
         </div>
 
         {/* Street */}
         <div>
-          <label style={LABEL_STYLE}>Street / Area</label>
+          <label className={labelCls}>Street / Area</label>
           <input
             required
             type="text"
             placeholder="House no., street, locality"
             value={form.street}
             onChange={(e) => set('street', e.target.value)}
-            style={INPUT_STYLE}
+            className={inputCls}
           />
         </div>
 
         {/* City + State */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-6">
           <div>
-            <label style={LABEL_STYLE}>City</label>
+            <label className={labelCls}>City</label>
             <input
               required
               type="text"
               placeholder="City"
               value={form.city}
               onChange={(e) => set('city', e.target.value)}
-              style={INPUT_STYLE}
+              className={inputCls}
             />
           </div>
           <div>
-            <label style={LABEL_STYLE}>State</label>
+            <label className={labelCls}>State</label>
             <input
               required
               type="text"
               placeholder="State"
               value={form.state}
               onChange={(e) => set('state', e.target.value)}
-              style={INPUT_STYLE}
+              className={inputCls}
             />
           </div>
         </div>
 
         {/* Postal code + Country */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-6">
           <div>
-            <label style={LABEL_STYLE}>Postal Code</label>
+            <label className={labelCls}>Postal Code</label>
             <input
               required
               type="text"
               placeholder="400001"
               value={form.postalCode}
               onChange={(e) => set('postalCode', e.target.value)}
-              style={{ ...INPUT_STYLE, fontFamily: 'Switzer', fontWeight: 500 }}
+              className={inputCls}
             />
           </div>
           <div>
-            <label style={LABEL_STYLE}>Country</label>
+            <label className={labelCls}>Country</label>
             <input
               required
               type="text"
               placeholder="India"
               value={form.country}
               onChange={(e) => set('country', e.target.value)}
-              style={INPUT_STYLE}
+              className={inputCls}
             />
           </div>
         </div>
 
         {/* Set as default */}
-        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+        <label className="flex items-center gap-3 cursor-pointer select-none">
           <div
             onClick={() => set('isDefault', !form.isDefault)}
-            className="w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-150 shrink-0"
+            className="w-4 h-4 border flex items-center justify-center transition-all duration-150 shrink-0"
             style={{
-              borderColor: form.isDefault
-                ? 'var(--color-text)'
-                : 'var(--color-border-strong)',
-              background: form.isDefault ? 'var(--color-text)' : 'transparent',
+              borderColor: form.isDefault ? '#1B1B1B' : 'rgba(27,27,27,0.2)',
+              background: form.isDefault ? '#1B1B1B' : 'transparent',
             }}
           >
             {form.isDefault && (
-              <Check
-                strokeWidth={2.5}
-                className="w-2.5 h-2.5"
-                style={{ color: 'var(--color-accent-text)' }}
-              />
+              <Check strokeWidth={2.5} className="w-2.5 h-2.5 text-white" />
             )}
           </div>
-          <span
-            className="text-[12.5px]"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
+          <span className="text-[13px] font-light text-[#1B1B1B]/75">
             Set as default address
           </span>
         </label>
@@ -498,26 +407,17 @@ function AddAddressForm({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 py-3 rounded-2xl text-[12.5px] font-medium border cursor-pointer transition duration-150 hover:opacity-70"
-            style={{
-              borderColor: 'var(--color-border-strong)',
-              color: 'var(--color-text-muted)',
-            }}
+            className="flex-1 py-3.5 text-[0.725rem] tracking-[1.5px] uppercase text-[#1B1B1B]/70 border border-black/55 hover:text-[#1B1B1B] hover:border-black/25 transition-colors duration-200 cursor-pointer"
           >
             Cancel
           </button>
-          <motion.button
+          <button
             type="submit"
-            whileTap={{ scale: 0.97 }}
             disabled={saving}
-            className="flex-1 py-3 rounded-2xl text-[12.5px] font-medium cursor-pointer transition duration-150 hover:opacity-80 disabled:opacity-50"
-            style={{
-              background: 'var(--color-accent)',
-              color: 'var(--color-accent-text)',
-            }}
+            className="flex-1 py-3.5 text-[0.725rem] tracking-[1.5px] uppercase text-white bg-black rounded-full hover:opacity-80 transition-opacity duration-200 cursor-pointer disabled:opacity-40"
           >
             {saving ? 'Saving…' : 'Save Address'}
-          </motion.button>
+          </button>
         </div>
       </form>
     </motion.div>
@@ -528,6 +428,7 @@ function AddAddressForm({
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { status } = useSession();
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [cart, setCart] = useState<CartResponse | null>(null);
@@ -537,8 +438,9 @@ export default function CheckoutPage() {
 
   const addresses = useAddressStore((s) => s.addresses);
   const setAddresses = useAddressStore((s) => s.setAddresses);
-
   useEffect(() => {
+    if (status === 'unauthenticated') { router.replace('/login'); return; }
+    if (status !== 'authenticated') return;
     Promise.all([
       clientFetch('/api/customer/profile').then((r) => r.json()),
       clientFetch('/api/cart')
@@ -560,7 +462,7 @@ export default function CheckoutPage() {
         setCart(cartData);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [status, router]);
 
   const handleSaveAddress = async (formData: AddressFormData) => {
     setSaving(true);
@@ -570,12 +472,10 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      // Re-fetch the full list so we get real server-assigned ids
       const r = await clientFetch('/api/customer/address');
       const raw = await r.json();
       const fresh: Address[] = Array.isArray(raw) ? raw : [];
       setAddresses(fresh);
-      // Auto-select the newly added address (last in the list)
       if (fresh.length > 0) {
         const newest = fresh[fresh.length - 1];
         if (!selectedId) setSelectedId(newest.id);
@@ -593,88 +493,56 @@ export default function CheckoutPage() {
   const totalQty = safeItems.reduce((s, i) => s + i.quantity, 0);
   const selectedAddress = safeAddresses.find((a) => a.id === selectedId);
 
+  console.log(safeAddresses, safeItems, authInfo);
+
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
+    <div className="min-h-screen bg-white flex flex-col">
+      <style>{`
+        @keyframes skeleton-shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
+
       <CheckoutSteps currentStep={1} />
 
       {loading ? (
         <CheckoutSkeleton />
       ) : (
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-6 pb-16 flex flex-col lg:flex-row gap-6">
-          {/* ── LEFT: Customer + Addresses ── */}
-          <div className="flex-1 flex flex-col gap-4">
-            {/* Back to cart */}
+        <div className="max-w-5xl mx-auto w-full px-6 md:px-10 pt-10 pb-16 flex flex-col lg:flex-row gap-10 lg:gap-14">
+          {/* ── LEFT ─────────────────────────────────────────────────────── */}
+          <div className="flex-1 min-w-0 flex flex-col gap-8">
+            {/* Back to bag */}
             <button
               onClick={() => router.push('/cart')}
-              className="flex items-center gap-1.5 text-[12px] cursor-pointer transition duration-150 self-start"
-              style={{ color: 'var(--color-text-subtle)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--color-text)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--color-text-subtle)';
-              }}
+              className="flex items-center gap-1.5 text-[0.725rem] tracking-[1.5px] uppercase text-[#1B1B1B]/95 transition-colors duration-200 cursor-pointer self-start"
             >
-              <ArrowLeft strokeWidth={1.8} className="w-3.5 h-3.5" />
+              <ArrowLeft strokeWidth={1.5} className="w-3 h-3" />
               Back to Bag
             </button>
 
             {/* Customer Info */}
             {authInfo && (
-              <div
-                className="rounded-2xl p-5 border"
-                style={{
-                  background: 'var(--color-surface)',
-                  borderColor: 'var(--color-border)',
-                }}
-              >
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-widest mb-4"
-                  style={{ color: 'var(--color-text-subtle)' }}
-                >
+              <div className="border-b border-black/8 pb-8">
+                <p className="text-[0.725rem] tracking-[1.5px] uppercase text-[#1B1B1B]/75 mb-5">
                   Customer
                 </p>
-
                 <div className="flex items-center gap-4">
-                  {/* Avatar */}
-                  <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-base font-semibold select-none shrink-0"
-                    style={{
-                      background: 'var(--color-surface-muted)',
-                      color: 'var(--color-text)',
-                    }}
-                  >
+                  <div className="w-10 h-10 bg-[#1B1B1B]/6 flex items-center justify-center shrink-0 text-[14px] font-light text-[#1B1B1B] select-none">
                     {authInfo.fullName?.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex flex-col gap-1.5 min-w-0">
-                    <span
-                      className="text-[15px] font-medium"
-                      style={{ color: 'var(--color-text)' }}
-                    >
+                    <span className="text-[14px] font-light text-[#1B1B1B]">
                       {toCapitalCase(authInfo.fullName)}
                     </span>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-                      <span
-                        className="flex items-center gap-1.5 text-[12px]"
-                        style={{ color: 'var(--color-text-muted)' }}
-                      >
-                        <Mail
-                          strokeWidth={1.5}
-                          className="w-3.5 h-3.5 shrink-0"
-                        />
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-5">
+                      <span className="flex items-center gap-1.5 text-[12px] font-light text-[#1B1B1B]/75">
+                        <Mail strokeWidth={1.5} className="w-3 h-3 shrink-0" />
                         {authInfo.email}
                       </span>
-                      <span
-                        className="flex items-center gap-1.5 text-[12px]"
-                        style={{ color: 'var(--color-text-muted)' }}
-                      >
-                        <Phone
-                          strokeWidth={1.5}
-                          className="w-3.5 h-3.5 shrink-0"
-                        />
-                        <span style={{ fontFamily: 'Switzer', fontWeight: 500 }}>
-                          {authInfo.phoneNumber}
-                        </span>
+                      <span className="flex items-center gap-1.5 text-[12px] font-light text-[#1B1B1B]/75">
+                        <Phone strokeWidth={1.5} className="w-3 h-3 shrink-0" />
+                        {authInfo.phoneNumber}
                       </span>
                     </div>
                   </div>
@@ -683,42 +551,23 @@ export default function CheckoutPage() {
             )}
 
             {/* Delivery Address */}
-            <div
-              className="rounded-2xl p-5 border"
-              style={{
-                background: 'var(--color-surface)',
-                borderColor: 'var(--color-border)',
-              }}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-widest"
-                  style={{ color: 'var(--color-text-subtle)' }}
-                >
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <p className="text-[0.725rem] tracking-[1.5px] uppercase text-[#1B1B1B]/95">
                   Delivery Address
                 </p>
-                <span
-                  className="text-[11px]"
-                  style={{
-                    color: 'var(--color-text-subtle)',
-                    fontFamily: 'Switzer', fontWeight: 500,
-                  }}
-                >
+                <span className="text-[12px] font-light text-[#1B1B1B]/70">
                   {safeAddresses.length} saved
                 </span>
               </div>
 
               {safeAddresses.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-6 text-center">
+                <div className="flex flex-col items-center gap-3 py-10 text-center border border-black/8">
                   <MapPin
-                    strokeWidth={1.2}
-                    className="w-8 h-8 opacity-20"
-                    style={{ color: 'var(--color-text)' }}
+                    strokeWidth={1}
+                    className="w-7 h-7 text-[#1B1B1B]/15"
                   />
-                  <p
-                    className="text-[13px]"
-                    style={{ color: 'var(--color-text-subtle)' }}
-                  >
+                  <p className="text-[13px] font-light text-[#1B1B1B]/35">
                     No saved addresses yet
                   </p>
                 </div>
@@ -753,152 +602,101 @@ export default function CheckoutPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  whileTap={{ scale: 0.98 }}
                   onClick={() => setShowAddForm(true)}
-                  className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl border-2 border-dashed text-[12.5px] font-medium cursor-pointer transition duration-150 hover:opacity-70"
-                  style={{
-                    borderColor: 'var(--color-border-strong)',
-                    color: 'var(--color-text-muted)',
-                  }}
+                  className="flex items-center justify-center gap-2 w-full py-4 border border-dashed border-black/12 text-[0.725rem] tracking-[1.5px] uppercase text-[#1B1B1B]/35 hover:text-[#1B1B1B]/60 hover:border-black/25 transition-colors duration-200 cursor-pointer"
                 >
-                  <Plus strokeWidth={2} className="w-4 h-4" />
+                  <Plus strokeWidth={1.5} className="w-3.5 h-3.5" />
                   Add New Address
                 </motion.button>
               )}
             </AnimatePresence>
           </div>
 
-          {/* ── RIGHT: Order Summary ── */}
-          <div className="lg:w-80 flex flex-col gap-4">
-            <div
-              className="rounded-2xl p-5 border lg:sticky lg:top-24"
-              style={{
-                background: 'var(--color-surface)',
-                borderColor: 'var(--color-border)',
-              }}
-            >
-              <h2
-                className="text-[11px] font-semibold uppercase tracking-widest mb-4"
-                style={{ color: 'var(--color-text-subtle)' }}
-              >
+          {/* ── RIGHT: Summary ────────────────────────────────────────────── */}
+          <div className="lg:w-72 xl:w-80 shrink-0">
+            <div className=" px-8 py-10 lg:sticky lg:top-8 flex flex-col gap-7">
+              <p className="text-[0.65rem] tracking-[1.5px] uppercase text-[#1B1B1B]/95">
                 Order Summary
-              </h2>
+              </p>
 
-              {/* Selected address preview */}
+              {/* Delivering to */}
               {selectedAddress && (
-                <div
-                  className="rounded-xl p-3 mb-4"
-                  style={{ background: 'var(--color-surface-muted)' }}
-                >
-                  <p
-                    className="text-[10px] font-semibold uppercase tracking-wider mb-1"
-                    style={{ color: 'var(--color-text-subtle)' }}
-                  >
+                <div className="border-b border-black/8 pb-6">
+                  <p className="text-[0.65rem] tracking-[1.5px] uppercase text-[#1B1B1B]/75 mb-2">
                     Delivering to
                   </p>
-                  <p
-                    className="text-[12.5px] font-medium"
-                    style={{ color: 'var(--color-text)' }}
-                  >
+                  <p className="text-[13px] font-light text-[#1B1B1B]">
                     {selectedAddress.label} — {selectedAddress.street}
                   </p>
-                  <p
-                    className="text-[11.5px]"
-                    style={{ color: 'var(--color-text-muted)' }}
-                  >
+                  <p className="text-[12px] font-light text-[#1B1B1B]/65 mt-0.5">
                     {toCapitalCase(selectedAddress.city)},{' '}
-                    <span style={{ fontFamily: 'Switzer', fontWeight: 500 }}>
-                      {selectedAddress.postalCode}
-                    </span>
+                    {selectedAddress.postalCode}
                   </p>
                 </div>
-              )}
-
-              {/* Items count */}
-              {cart && (
-                <p
-                  className="text-[12px] mb-3"
-                  style={{
-                    color: 'var(--color-text-muted)',
-                    fontFamily: 'Switzer', fontWeight: 500,
-                  }}
-                >
-                  {totalQty} {totalQty === 1 ? 'Item' : 'Items'}
-                </p>
               )}
 
               {/* Price rows */}
-              <div className="flex flex-col gap-3">
-                <div
-                  className="flex justify-between text-[13px]"
-                  style={{
-                    color: 'var(--color-text-muted)',
-                    fontFamily: 'Switzer', fontWeight: 500,
-                  }}
-                >
-                  <span>
-                    Subtotal{' '}
-                    <span style={{ color: 'var(--color-text-subtle)' }}>
+              <div className="flex flex-col gap-4">
+                <div className="flex justify-between items-baseline">
+                  <p className="text-[13px] font-light text-[#1B1B1B]/75">
+                    Subtotal
+                    <span className="text-[#1B1B1B]/75 ml-1 text-[11px]">
                       ({totalQty})
                     </span>
-                  </span>
-                  <span>{cart ? formatINR(cart.subtotal) : '—'}</span>
+                  </p>
+                  <p className="text-[13px] font-light text-[#1B1B1B]/75">
+                    {cart ? formatINR(cart.subtotal) : '—'}
+                  </p>
                 </div>
-                <div
-                  className="flex justify-between text-[13px]"
-                  style={{ color: 'var(--color-text-muted)' }}
-                >
-                  <span>Delivery</span>
-                  <span className="text-green-600 font-medium">FREE</span>
-                </div>
-                <div
-                  className="h-px my-1"
-                  style={{ background: 'var(--color-border)' }}
-                />
-                <div
-                  className="flex justify-between text-[15px] font-bold"
-                  style={{ color: 'var(--color-text)' }}
-                >
-                  <span>Total</span>
-                  <span style={{ fontFamily: 'Switzer', fontWeight: 500 }}>
-                    {cart ? formatINR(cart.estimatedTotal) : '—'}
-                  </span>
+                <div className="flex justify-between items-baseline">
+                  <p className="text-[13px] font-light text-[#1B1B1B]/70">
+                    Delivery
+                  </p>
+                  <p className="text-[11px] tracking-[1px] uppercase text-[#1B1B1B]/70">
+                    Free
+                  </p>
                 </div>
               </div>
 
+              {/* Divider */}
+              <div className="h-px bg-black/8" />
+
+              {/* Total */}
+              <div className="flex justify-between items-baseline">
+                <p className="text-[0.65rem] tracking-[1.5px] uppercase text-[#1B1B1B]/75">
+                  Total
+                </p>
+                <p
+                  className="font-light text-[#1B1B1B]"
+                  style={{ fontSize: 'clamp(1.1rem, 2vw, 1.4rem)' }}
+                >
+                  {cart ? formatINR(cart.estimatedTotal) : '—'}
+                </p>
+              </div>
+
               {/* Proceed */}
-              <motion.button
-                whileTap={{ scale: 0.97 }}
+              <button
                 disabled={!selectedId}
                 onClick={() => router.push(`/payment?addressId=${selectedId}`)}
-                className="w-full mt-5 py-3.5 text-[13px] font-semibold rounded-2xl cursor-pointer flex items-center justify-center gap-2 transition duration-200 hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{
-                  background: 'var(--color-accent)',
-                  color: 'var(--color-accent-text)',
-                }}
+                className="w-full bg-black text-white text-[0.725rem] tracking-[1.5px] uppercase py-4 rounded-full hover:opacity-80 transition-opacity duration-200 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-35 disabled:cursor-not-allowed"
               >
                 Proceed to Payment
-                <ChevronRight strokeWidth={2} className="w-4 h-4" />
-              </motion.button>
+                <ChevronRight strokeWidth={1.5} className="w-3.5 h-3.5" />
+              </button>
 
               {!selectedId && (
-                <p
-                  className="text-center text-[11px] mt-2"
-                  style={{ color: 'var(--color-text-subtle)' }}
-                >
+                <p className="text-center text-[11px] font-light text-[#1B1B1B]/35 -mt-3">
                   Select a delivery address to continue
                 </p>
               )}
 
-              <div className="flex items-center justify-center gap-1.5 mt-3">
+              {/* Secure */}
+              <div className="flex items-center justify-center gap-1.5">
                 <ShieldCheck
                   strokeWidth={1.5}
-                  className="w-3.5 h-3.5 text-emerald-500"
+                  className="w-4 h-4 text-[#1B1B1B]/75"
                 />
-                <span
-                  className="text-[11px]"
-                  style={{ color: 'var(--color-text-subtle)' }}
-                >
+                <span className="text-[0.6rem] tracking-[1.5px] uppercase text-[#1B1B1B]/75">
                   Safe &amp; Secure Payments
                 </span>
               </div>

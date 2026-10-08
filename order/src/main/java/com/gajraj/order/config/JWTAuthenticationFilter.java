@@ -3,6 +3,7 @@ package com.gajraj.order.config;
 import com.gajraj.order.service.JwtService.JWTService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -29,7 +30,7 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
 
         String path = request.getRequestURI();
 
-        if (path.contains("/internal/")) {
+        if (path.contains("/internal/") && !path.startsWith("/internal/manager-stats/")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -49,19 +50,21 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
 
             String userId = jwtService.extractUserId(token);
             UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userId, null, null);
+                    new UsernamePasswordAuthenticationToken(userId, null,
+                            jwtService.extractUserRole(token) == null ? java.util.List.of() : java.util.List.of(
+                            new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                            jwtService.extractUserRole(token).startsWith("ROLE_") ? jwtService.extractUserRole(token) : "ROLE_" + jwtService.extractUserRole(token))));
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            filterChain.doFilter(request, response);
-
         } catch (io.jsonwebtoken.ExpiredJwtException e) {
-            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has expired, please log in again");
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has expired, please log in again"); return;
         } catch (io.jsonwebtoken.SignatureException e) {
-            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token signature");
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token signature"); return;
         } catch (Exception e) {
-            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: " + e.getMessage());
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid authentication token"); return;
         }
+        filterChain.doFilter(request, response);
     }
 
 
@@ -74,9 +77,16 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
 
     private String parseJwt(HttpServletRequest request) {
         String headerAuth = request.getHeader("Authorization");
-
         if (StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {
             return headerAuth.substring(7);
+        }
+
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("access_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
         }
 
         return null;

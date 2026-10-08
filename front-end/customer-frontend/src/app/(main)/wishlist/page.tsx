@@ -1,11 +1,15 @@
 ﻿'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Trash2, ArrowRight, PackageOpen } from 'lucide-react';
+import { Heart, Trash2, PackageOpen, ShoppingBag, LogIn, UserPlus } from 'lucide-react';
 import { clientFetch } from '@/lib/clientFetch';
 import { WishlistItem } from '@/types/wishlist';
+
+// ─── Wishlist Card ────────────────────────────────────────────────────────────
 
 function WishlistCard({
   item,
@@ -32,146 +36,214 @@ function WishlistCard({
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: removing ? 0 : 1, scale: removing ? 0.94 : 1 }}
-      exit={{ opacity: 0, scale: 0.94 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: removing ? 0 : 1 }}
+      exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
-      className="relative rounded-2xl overflow-hidden flex flex-col"
-      style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.055)' }}
+      className="flex flex-col border border-black/8 bg-white group"
     >
       {/* Image */}
       <div
-        className="relative overflow-hidden"
-        style={{ height: 'clamp(150px, 42vw, 220px)', background: '#F9F6F2' }}
+        className="relative w-full overflow-hidden"
+        style={{ aspectRatio: '3/4', background: 'rgba(27,27,27,0.03)' }}
+        onClick={() => router.push(`/product/detail/${item.productId}`)}
       >
         {item.primaryImage ? (
-          <img
+          <Image
+            fill
             src={item.primaryImage}
             alt={item.productName}
-            className="w-full h-full object-cover"
-            loading="lazy"
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.03] cursor-pointer"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center opacity-20">
-            <PackageOpen size={40} strokeWidth={1.2} />
+          <div className="w-full h-full flex items-center justify-center cursor-pointer">
+            <PackageOpen
+              strokeWidth={1}
+              className="w-8 h-8"
+              style={{ color: 'rgba(27,27,27,0.15)' }}
+            />
           </div>
         )}
 
         {/* Remove button */}
-        <motion.button
-          whileTap={{ scale: 0.88 }}
-          onClick={handleRemove}
+        <button
+          onClick={(e) => { e.stopPropagation(); handleRemove(); }}
           disabled={removing}
-          className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer"
+          className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center cursor-pointer transition-opacity duration-200 disabled:opacity-40"
           style={{
-            background: 'rgba(255,255,255,0.85)',
+            background: 'rgba(255,255,255,0.90)',
             backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
             border: '1px solid rgba(0,0,0,0.08)',
-            color: '#EF4444',
           }}
           aria-label="Remove from wishlist"
         >
-          <Heart size={14} strokeWidth={0} fill="#EF4444" />
-        </motion.button>
+          <Heart
+            strokeWidth={0}
+            fill="#EF4444"
+            className="w-3.5 h-3.5"
+          />
+        </button>
       </div>
 
       {/* Info */}
-      <div className="p-3 sm:p-4 flex flex-col gap-1 flex-1">
-        <span
-          style={{
-            fontSize: '8px',
-            letterSpacing: '2px',
-            textTransform: 'uppercase',
-            color: '#B88A44',
-            fontWeight: 500,
-          }}
-        >
-          {item.categoryName}
-        </span>
-        <h3
-          className="font-serif leading-snug"
-          style={{ fontSize: 'clamp(0.82rem, 3.5vw, 1rem)', color: '#1B1B1B', fontWeight: 400 }}
+      <div className="px-4 pt-4 pb-3 flex flex-col gap-2 flex-1">
+        {item.categoryName && (
+          <p
+            className="text-[0.6rem] tracking-[1.5px] uppercase"
+            style={{ color: 'rgba(27,27,27,0.40)' }}
+          >
+            {item.categoryName}
+          </p>
+        )}
+        <p
+          className="font-light leading-snug"
+          style={{ fontSize: 'clamp(0.82rem, 1.2vw, 0.95rem)', color: '#1B1B1B' }}
         >
           {item.productName}
-        </h3>
-        <p style={{ fontSize: 'clamp(12px, 3.5vw, 14px)', fontWeight: 600, color: '#1B1B1B', marginTop: '2px' }}>
+        </p>
+        <p
+          className="text-[0.825rem] font-light"
+          style={{ color: 'rgba(27,27,27,0.70)' }}
+        >
           ₹{item.basePrice.toLocaleString('en-IN')}
         </p>
       </div>
 
-      {/* Explore button */}
-      <div className="px-3 sm:px-4 pb-3 sm:pb-4">
-        <motion.button
-          whileTap={{ scale: 0.97 }}
+      {/* View button */}
+      <div className="px-4 pb-4">
+        <button
           onClick={() => router.push(`/product/detail/${item.productId}`)}
-          className="w-full flex items-center justify-center gap-2 rounded-xl font-medium cursor-pointer"
-          style={{
-            height: '36px',
-            background: '#1B1B1B',
-            color: '#FFFFFF',
-            fontSize: 'clamp(11px, 3vw, 13px)',
-          }}
+          className="w-full py-2.5 text-[0.7rem] tracking-[2px] uppercase font-light text-white bg-black rounded-full transition-opacity duration-200 hover:opacity-80 cursor-pointer"
         >
-          Explore
-          <ArrowRight size={14} strokeWidth={2} />
-        </motion.button>
+          View
+        </button>
       </div>
     </motion.div>
   );
 }
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+function WishlistSkeleton() {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-px bg-black/8">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="bg-white flex flex-col">
+          <div
+            className="w-full"
+            style={{
+              aspectRatio: '3/4',
+              background:
+                'linear-gradient(90deg,rgba(27,27,27,0.04) 25%,rgba(27,27,27,0.08) 50%,rgba(27,27,27,0.04) 75%)',
+              backgroundSize: '200% 100%',
+              animation: 'wishlist-shimmer 1.6s infinite',
+            }}
+          />
+          <div className="px-4 pt-4 pb-4 flex flex-col gap-2.5">
+            <div className="h-2 w-16 rounded" style={{ background: 'rgba(27,27,27,0.06)' }} />
+            <div className="h-3 w-32 rounded" style={{ background: 'rgba(27,27,27,0.06)' }} />
+            <div className="h-2.5 w-20 rounded" style={{ background: 'rgba(27,27,27,0.06)' }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
 
 function EmptyWishlist() {
   const router = useRouter();
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="flex flex-col items-center justify-center gap-5 py-24 px-6"
-    >
-      <div
-        className="w-20 h-20 rounded-full flex items-center justify-center"
-        style={{ background: '#FEF2F2' }}
-      >
-        <Heart size={32} strokeWidth={1.4} style={{ color: '#FCA5A5' }} />
-      </div>
-      <div className="text-center">
-        <h2
-          className="font-serif"
-          style={{ fontSize: '1.5rem', color: '#1B1B1B', fontWeight: 400, marginBottom: '8px' }}
+    <div className="flex flex-col items-center justify-center py-28 px-6 text-center gap-6">
+      <Heart strokeWidth={1} className="w-10 h-10" style={{ color: 'rgba(27,27,27,0.15)' }} />
+      <div>
+        <p
+          className="font-light text-[#1B1B1B] mb-2"
+          style={{ fontSize: 'clamp(1.1rem, 1.8vw, 1.4rem)' }}
         >
           Your wishlist is empty
-        </h2>
-        <p style={{ fontSize: '14px', color: '#888', maxWidth: '300px', margin: '0 auto' }}>
+        </p>
+        <p
+          className="text-[0.825rem] font-light max-w-xs mx-auto"
+          style={{ color: 'rgba(27,27,27,0.45)' }}
+        >
           Save your favourite Paithani pieces here and come back to them anytime.
         </p>
       </div>
-      <motion.button
-        whileTap={{ scale: 0.96 }}
-        onClick={() => router.push('/')}
-        className="flex items-center gap-2 px-6 py-3 rounded-full font-medium cursor-pointer"
-        style={{ background: '#1B1B1B', color: '#fff', fontSize: '13px' }}
+      <button
+        onClick={() => router.push('/collections')}
+        className="px-10 py-3.5 text-[0.7rem] tracking-[2px] uppercase font-light text-white bg-black rounded-full transition-opacity duration-200 hover:opacity-80 cursor-pointer"
       >
-        Explore Collections
-        <ArrowRight size={14} strokeWidth={2} />
-      </motion.button>
-    </motion.div>
+        Browse Collections
+      </button>
+    </div>
   );
 }
 
+// ─── Guest state ──────────────────────────────────────────────────────────────
+
+function GuestWishlist() {
+  const router = useRouter();
+  return (
+    <div className="flex flex-col items-center justify-center py-28 px-6 text-center gap-6">
+      <ShoppingBag strokeWidth={1} className="w-10 h-10" style={{ color: 'rgba(27,27,27,0.15)' }} />
+      <div>
+        <p
+          className="font-light text-[#1B1B1B] mb-2"
+          style={{ fontSize: 'clamp(1.1rem, 1.8vw, 1.4rem)' }}
+        >
+          Sign in to view your wishlist
+        </p>
+        <p
+          className="text-[0.825rem] font-light max-w-xs mx-auto"
+          style={{ color: 'rgba(27,27,27,0.45)' }}
+        >
+          Your saved pieces are tied to your account. Sign in to access them.
+        </p>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          onClick={() => router.push('/login')}
+          className="flex items-center justify-center gap-2.5 px-10 py-3.5 text-[0.7rem] tracking-[2px] uppercase font-light text-white bg-black rounded-full transition-opacity duration-200 hover:opacity-80 cursor-pointer"
+        >
+          <LogIn strokeWidth={1} className="w-3.5 h-3.5" />
+          Sign In
+        </button>
+        <button
+          onClick={() => router.push('/register')}
+          className="flex items-center justify-center gap-2.5 px-10 py-3.5 text-[0.7rem] tracking-[2px] uppercase font-light text-[#1B1B1B] transition-opacity duration-200 hover:opacity-75 cursor-pointer"
+          style={{ border: '1px solid rgba(27,27,27,0.20)' }}
+        >
+          <UserPlus strokeWidth={1} className="w-3.5 h-3.5" />
+          Create Account
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Wishlist Page ────────────────────────────────────────────────────────────
+
 export default function WishlistPage() {
+  const { status } = useSession();
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
 
+  const isAuthenticated = status === 'authenticated';
+
   useEffect(() => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
     clientFetch('/api/wishlist')
       .then((r) => r.json())
       .then((data) => setItems(Array.isArray(data) ? data : []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [isAuthenticated]);
 
   const handleRemove = (wishlistId: string) => {
     setItems((prev) => prev.filter((i) => i.wishlistId !== wishlistId));
@@ -189,82 +261,78 @@ export default function WishlistPage() {
     }
   };
 
-  return (
-    <div style={{ background: '#F9F6F2', minHeight: '100vh' }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-7 sm:py-10 lg:py-14">
+  const isSessionLoading = status === 'loading';
 
-        {/* Header */}
-        <div className="flex items-end justify-between mb-6 sm:mb-10">
+  return (
+    <div className="min-h-screen bg-white">
+      <style>{`
+        @keyframes wishlist-shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
+
+      <div className="px-6 md:px-12 lg:px-16 py-12 md:py-16">
+
+        {/* ── Header ── */}
+        <div className="flex items-end justify-between mb-10 md:mb-14 pb-8 border-b border-black/8">
           <div>
-            <span
-              style={{
-                fontSize: '10px',
-                letterSpacing: '3px',
-                textTransform: 'uppercase',
-                color: '#B88A44',
-                fontWeight: 500,
-                display: 'block',
-                marginBottom: '8px',
-              }}
+            <p
+              className="text-[0.725rem] tracking-[1.5px] uppercase mb-3"
+              style={{ color: 'rgba(27,27,27,0.969)' }}
             >
               Saved Items
-            </span>
+            </p>
             <h1
-              className="font-serif"
-              style={{ fontSize: 'clamp(1.8rem, 4vw, 2.4rem)', color: '#1B1B1B', fontWeight: 400 }}
+              className="font-light text-[#1B1B1B] leading-none"
+              style={{ fontSize: 'clamp(1.6rem, 3vw, 2.4rem)' }}
             >
               My Wishlist
-              {!loading && items.length > 0 && (
+              {!loading && !isSessionLoading && isAuthenticated && items.length > 0 && (
                 <span
-                  style={{ fontSize: '1rem', color: '#AAA', fontFamily: 'inherit', marginLeft: '12px' }}
+                  className="text-[1rem] font-light ml-3"
+                  style={{ color: 'rgba(27,27,27,0.30)' }}
                 >
-                  ({items.length})
+                  {items.length}
                 </span>
               )}
             </h1>
           </div>
 
-          {!loading && items.length > 0 && (
-            <motion.button
-              whileTap={{ scale: 0.95 }}
+          {!loading && !isSessionLoading && isAuthenticated && items.length > 0 && (
+            <button
               onClick={handleClearAll}
               disabled={clearing}
-              className="flex items-center gap-2 cursor-pointer"
-              style={{ fontSize: '12px', color: '#EF4444', opacity: clearing ? 0.5 : 1 }}
+              className="flex items-center gap-2 text-[0.7rem] tracking-[1.5px] uppercase font-light transition-colors duration-200 cursor-pointer disabled:opacity-40"
+              style={{ color: 'rgba(27,27,27,0.40)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#dc2626'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(27,27,27,0.40)'; }}
             >
-              <Trash2 size={13} strokeWidth={1.8} />
+              <Trash2 strokeWidth={1.5} className="w-3.5 h-3.5" />
               {clearing ? 'Clearing…' : 'Clear all'}
-            </motion.button>
+            </button>
           )}
         </div>
 
-        {/* Skeleton */}
-        {loading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-            {[...Array(8)].map((_, i) => (
-              <div
-                key={i}
-                className="rounded-2xl overflow-hidden"
-                style={{
-                  height: '340px',
-                  background: 'linear-gradient(90deg,#EDE8E3 25%,#F5F1EC 50%,#EDE8E3 75%)',
-                  backgroundSize: '200% 100%',
-                  animation: 'skeleton-shimmer 1.6s infinite',
-                }}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Empty */}
-        {!loading && items.length === 0 && <EmptyWishlist />}
-
-        {/* Grid */}
-        {!loading && items.length > 0 && (
-          <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+        {/* ── Content ── */}
+        {loading || isSessionLoading ? (
+          <WishlistSkeleton />
+        ) : !isAuthenticated ? (
+          <GuestWishlist />
+        ) : items.length === 0 ? (
+          <EmptyWishlist />
+        ) : (
+          <motion.div
+            layout
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-px bg-black/8"
+          >
             <AnimatePresence>
               {items.map((item) => (
-                <WishlistCard key={item.wishlistId} item={item} onRemove={handleRemove} />
+                <WishlistCard
+                  key={item.wishlistId}
+                  item={item}
+                  onRemove={handleRemove}
+                />
               ))}
             </AnimatePresence>
           </motion.div>

@@ -70,20 +70,27 @@ public class CustomerController {
     }
 
 
-    @PostMapping("/address")
-    public ResponseEntity<?> saveAddress(@RequestBody AddressSaveRequestDTO addressSaveRequestDTO) {
-        String user_id = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
-        try{
-            return service.saveAddress(user_id, addressSaveRequestDTO);
-        }catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("internal server error");
-        }
-    }
-
     @GetMapping("/address")
     public ResponseEntity<?> getAddress() {
         return service.getAddress();
     }
 
+    @PostMapping("/address")
+    public ResponseEntity<?> saveAddress(@RequestBody AddressSaveRequestDTO addressSaveRequestDTO) {
+        String user_id = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        return service.saveAddress(user_id, addressSaveRequestDTO);
+    }
+
+    @PutMapping("/address/{id}")
+    public ResponseEntity<?> updateAddress(@PathVariable Long id, @RequestBody AddressSaveRequestDTO addressSaveRequestDTO) {
+        String user_id = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        return service.updateAddress(user_id, id, addressSaveRequestDTO);
+    }
+
+    @DeleteMapping("/address/{id}")
+    public ResponseEntity<?> deleteAddress(@PathVariable Long id) {
+        String user_id = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        return service.deleteAddress(user_id, id);
+    }
 
 }

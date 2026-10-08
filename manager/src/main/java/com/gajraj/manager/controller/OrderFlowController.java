@@ -3,6 +3,7 @@ package com.gajraj.manager.controller;
 import com.gajraj.manager.service.managerService.OrderFlowService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -33,8 +34,8 @@ public class OrderFlowController {
     // Body: { "handledBy": "managerId" }
     @PutMapping("/start/{orderId}")
     public ResponseEntity<?> startProduction(@PathVariable String orderId,
-                                             @RequestBody Map<String, String> body) {
-        return orderFlowService.startProduction(orderId, body.get("handledBy"));
+                                             @RequestBody Map<String, String> body, Authentication auth) {
+        return orderFlowService.startProduction(orderId, auth.getName());
     }
 
     // Stage 2: Manager marks production as done

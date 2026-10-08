@@ -4,6 +4,7 @@ import com.gajraj.manager.dto.priceChangeDTO.PriceChangeCreateDTO;
 import com.gajraj.manager.service.managerService.PriceChangeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -11,6 +12,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/manager/price-changes")
 public class PriceChangeController {
+    @Autowired private com.gajraj.manager.config.ManagerRecordAccess access;
 
     @Autowired
     private PriceChangeService priceChangeService;
@@ -25,7 +27,8 @@ public class PriceChangeController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<?> createPriceChange(@RequestBody PriceChangeCreateDTO dto) {
+    public ResponseEntity<?> createPriceChange(@RequestBody PriceChangeCreateDTO dto, Authentication auth) {
+        dto.setUpdatedBy(auth.getName());
         return priceChangeService.createPriceChange(dto);
     }
 
@@ -35,7 +38,8 @@ public class PriceChangeController {
     }
 
     @DeleteMapping("/delete/{priceChangeId}")
-    public ResponseEntity<?> deletePriceChange(@PathVariable UUID priceChangeId) {
+    public ResponseEntity<?> deletePriceChange(@PathVariable UUID priceChangeId, Authentication auth) {
+        access.price(priceChangeId, auth);
         return priceChangeService.deletePriceChange(priceChangeId);
     }
 }

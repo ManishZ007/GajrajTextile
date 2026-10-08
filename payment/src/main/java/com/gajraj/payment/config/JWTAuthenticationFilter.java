@@ -27,6 +27,10 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
+        if (org.springframework.web.cors.CorsUtils.isPreFlightRequest(request)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         String path = request.getRequestURI();
 
         if(path.contains("/internal")) {
@@ -50,20 +54,26 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
 
             // Extract user details
             String userId = jwtService.extractUserId(token);
+            String role = jwtService.extractUserRole(token);
+            var authorities = role == null ? java.util.List.<org.springframework.security.core.authority.SimpleGrantedAuthority>of()
+                    : java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                            role.startsWith("ROLE_") ? role : "ROLE_" + role));
             UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userId, null, null);
+                    new UsernamePasswordAuthenticationToken(userId, null, authorities);
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            filterChain.doFilter(request, response);
-
         } catch (io.jsonwebtoken.ExpiredJwtException ex) {
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has expired. Please refresh or log in again.");
+            return;
         } catch (io.jsonwebtoken.SignatureException ex) {
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token signature");
+            return;
         } catch (Exception ex) {
-            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: " + ex.getMessage());
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid authentication token");
+            return;
         }
+        filterChain.doFilter(request, response);
     }
 
     private void sendError(HttpServletResponse response, int status, String message) throws IOException {

@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.UUID;
 
 public interface ManagerOrderAssignmentRepo extends JpaRepository<ManagerOrderAssignments, UUID> {
+    java.util.List<ManagerOrderAssignments> findByManagerIdOrderByAssignedAtDesc(String managerId);
 }

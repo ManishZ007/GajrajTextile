@@ -27,9 +27,14 @@ public class Shipment {
 
     @Column(name = "order_id", nullable = false, unique = true)
     private String orderId;
+    private String paymentMethod;
+    private java.math.BigDecimal codAmount;
+    private Boolean codCollected = false;
+
 
     @Column(name = "user_id", nullable = false)
     private String userId;
+    private Boolean orderSyncPending;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "provider", nullable = false)

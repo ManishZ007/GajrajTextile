@@ -61,7 +61,7 @@ public class Managers {
     public enum ManagerType {
         PRODUCT_MANAGER, PRODUCTION_MANAGER
     }
-    private enum ManagerStatus {
+    public enum ManagerStatus {
         ACTIVE, INACTIVE
     }
 }

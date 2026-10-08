@@ -66,7 +66,7 @@ public class ProductVariantsService {
 
     @Transactional
     public VariantResponseDTO updateVariant(UUID variantId, VariantUpdateDTO dto) {
-        ProductVariants variant = productVariantsRepo.findById(variantId)
+        ProductVariants variant = productVariantsRepo.lockStock(variantId)
                 .orElseThrow(() -> new NoSuchElementException("Variant not found: " + variantId));
 
         if (dto.getSku() != null && !dto.getSku().equals(variant.getSku())) {
@@ -76,7 +76,8 @@ public class ProductVariantsService {
             variant.setSku(dto.getSku());
         }
         if (dto.getPrice() != null) variant.setPrice(dto.getPrice());
-        if (dto.getStockQuantity() != null) variant.setStockQuantity(dto.getStockQuantity());
+        if (dto.getStockQuantity() != null && !dto.getStockQuantity().equals(variant.getStockQuantity()))
+            throw new IllegalArgumentException("Change stock through Inventory so quantities and history stay consistent");
         if (dto.getStatus() != null) variant.setStatus(dto.getStatus());
         if (dto.getSize() != null) variant.setSize(dto.getSize());
         if (dto.getColor() != null) variant.setColor(dto.getColor());
@@ -86,14 +87,16 @@ public class ProductVariantsService {
 
     @Transactional
     public void deleteVariant(UUID variantId) {
-        ProductVariants variant = productVariantsRepo.findById(variantId)
+        ProductVariants variant = productVariantsRepo.lockStock(variantId)
                 .orElseThrow(() -> new NoSuchElementException("Variant not found: " + variantId));
-        productVariantsRepo.delete(variant);
+        variant.setStatus("INACTIVE");
+        productVariantsRepo.save(variant);
     }
 
     @Transactional
     public Map<String, Object> decrementStock(UUID variantId, int quantity) {
-        ProductVariants variant = productVariantsRepo.findById(variantId)
+        if (quantity <= 0) throw new IllegalArgumentException("Quantity must be positive");
+        ProductVariants variant = productVariantsRepo.lockStock(variantId)
                 .orElseThrow(() -> new NoSuchElementException("Variant not found: " + variantId));
 
         if (variant.getStockQuantity() < quantity) {
@@ -122,11 +125,12 @@ public class ProductVariantsService {
 
     @Transactional
     public Map<String, Object> incrementStock(UUID variantId, int quantity) {
-        ProductVariants variant = productVariantsRepo.findById(variantId)
+        if (quantity <= 0) throw new IllegalArgumentException("Quantity must be positive");
+        ProductVariants variant = productVariantsRepo.lockStock(variantId)
                 .orElseThrow(() -> new NoSuchElementException("Variant not found: " + variantId));
 
         int previousStock = variant.getStockQuantity();
-        variant.setStockQuantity(previousStock + quantity);
+        variant.setStockQuantity(Math.addExact(previousStock, quantity));
         if ("OUT_OF_STOCK".equals(variant.getStatus())) {
             variant.setStatus("ACTIVE");
         }

@@ -46,6 +46,7 @@ public class StockManagementService {
             case "name" -> Sort.by(Sort.Direction.ASC, "product.name");
             default -> Sort.by(Sort.Direction.DESC, "createdAt");
         };
+        validatePage(page, size);
         PageRequest pageable = PageRequest.of(page, size, sort);
 
         Specification<ProductVariants> spec = (root, query, cb) -> cb.conjunction();
@@ -66,9 +67,9 @@ public class StockManagementService {
                 case "OUT_OF_STOCK" -> (root, query, cb) -> cb.equal(root.get("stockQuantity"), 0);
                 case "LOW" -> (root, query, cb) -> cb.and(
                         cb.greaterThan(root.get("stockQuantity"), 0),
-                        cb.lessThan(root.get("stockQuantity"), 5)
+                        cb.lessThanOrEqualTo(root.get("stockQuantity"), 5)
                 );
-                case "GOOD" -> (root, query, cb) -> cb.greaterThanOrEqualTo(root.get("stockQuantity"), 5);
+                case "GOOD" -> (root, query, cb) -> cb.greaterThan(root.get("stockQuantity"), 5);
                 default -> (root, query, cb) -> cb.conjunction();
             });
         }
@@ -95,10 +96,12 @@ public class StockManagementService {
 
     @Transactional(readOnly = true)
     public InventoryListResponseDTO getLowStockItems(int page, int size, int threshold) {
+        validatePage(page, size);
         PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "stockQuantity"));
 
+        if (threshold < 0) throw new IllegalArgumentException("Threshold cannot be negative");
         Specification<ProductVariants> spec = (root, query, cb) -> cb.and(
-                cb.greaterThan(root.get("stockQuantity"), 0),
+                cb.greaterThanOrEqualTo(root.get("stockQuantity"), 0),
                 cb.lessThanOrEqualTo(root.get("stockQuantity"), threshold)
         );
 
@@ -124,7 +127,7 @@ public class StockManagementService {
 
     @Transactional
     public InventoryItemDTO updateStock(UUID variantId, StockUpdateDTO dto) {
-        if (dto.getReason() == null || dto.getReason().isBlank()) {
+        if (dto.getReason() == null || dto.getReason().isBlank() || dto.getReason().length() > 1000) {
             throw new IllegalArgumentException("reason is required");
         }
         if (dto.getNewQuantity() != null && dto.getAdjustmentAmount() != null) {
@@ -134,10 +137,12 @@ public class StockManagementService {
             throw new IllegalArgumentException("Either newQuantity or adjustmentAmount is required");
         }
 
-        ProductVariants variant = productVariantsRepo.findById(variantId)
+        ProductVariants variant = productVariantsRepo.lockStock(variantId)
                 .orElseThrow(() -> new NoSuchElementException("Variant not found: " + variantId));
 
         int previousStock = variant.getStockQuantity();
+        if (dto.getNewQuantity() != null && (dto.getExpectedQuantity() == null || dto.getExpectedQuantity() != previousStock))
+            throw new IllegalArgumentException("Stock changed since this page loaded. Refresh before setting a quantity.");
         int resultingQuantity;
         int changeAmount;
         StockHistory.ChangeType changeType;
@@ -150,7 +155,7 @@ public class StockManagementService {
             changeAmount = resultingQuantity - previousStock;
             changeType = StockHistory.ChangeType.ADJUSTMENT;
         } else {
-            resultingQuantity = previousStock + dto.getAdjustmentAmount();
+            resultingQuantity = Math.addExact(previousStock, dto.getAdjustmentAmount());
             if (resultingQuantity < 0) {
                 throw new IllegalArgumentException(
                         "Adjustment would result in negative stock. Current: " + previousStock
@@ -162,10 +167,11 @@ public class StockManagementService {
                     : StockHistory.ChangeType.MANUAL_DECREASE;
         }
 
+        if (changeAmount == 0) throw new IllegalArgumentException("Quantity has not changed");
         variant.setStockQuantity(resultingQuantity);
         if (resultingQuantity == 0) {
             variant.setStatus("OUT_OF_STOCK");
-        } else if (previousStock == 0 && resultingQuantity > 0) {
+        } else if ("OUT_OF_STOCK".equals(variant.getStatus()) && resultingQuantity > 0) {
             variant.setStatus("ACTIVE");
         }
         productVariantsRepo.save(variant);
@@ -176,7 +182,7 @@ public class StockManagementService {
         history.setPreviousQuantity(previousStock);
         history.setNewQuantity(resultingQuantity);
         history.setChangeAmount(changeAmount);
-        history.setReason(dto.getReason());
+        history.setReason(dto.getReason().trim());
         history.setChangedBy(dto.getChangedBy());
         stockHistoryRepo.save(history);
 
@@ -185,10 +191,16 @@ public class StockManagementService {
 
     @Transactional
     public List<InventoryItemDTO> bulkUpdateStock(List<StockUpdateDTO.BulkStockUpdateItem> items) {
+        if (items == null || items.isEmpty() || items.size() > 1000 || items.stream().anyMatch(i -> i == null || i.getVariantId() == null))
+            throw new IllegalArgumentException("Provide 1 to 1000 valid variants");
+        if (items.stream().map(StockUpdateDTO.BulkStockUpdateItem::getVariantId).distinct().count() != items.size())
+            throw new IllegalArgumentException("Duplicate variants are not allowed");
+        items = items.stream().sorted(java.util.Comparator.comparing(StockUpdateDTO.BulkStockUpdateItem::getVariantId)).toList();
         List<InventoryItemDTO> results = new ArrayList<>();
         for (StockUpdateDTO.BulkStockUpdateItem item : items) {
             StockUpdateDTO dto = new StockUpdateDTO();
             dto.setNewQuantity(item.getNewQuantity());
+            dto.setExpectedQuantity(item.getExpectedQuantity());
             dto.setReason(item.getReason());
             dto.setChangedBy(item.getChangedBy());
             results.add(updateStock(item.getVariantId(), dto));
@@ -198,6 +210,7 @@ public class StockManagementService {
 
     @Transactional(readOnly = true)
     public StockHistoryListResponseDTO getStockHistory(int page, int size, UUID variantId, String changeType) {
+        validatePage(page, size);
         PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         if (variantId != null || changeType != null) {
@@ -231,6 +244,7 @@ public class StockManagementService {
         if (!productVariantsRepo.existsById(variantId)) {
             throw new NoSuchElementException("Variant not found: " + variantId);
         }
+        validatePage(page, size);
         PageRequest pageable = PageRequest.of(page, size);
         Page<StockHistory> historyPage = stockHistoryRepo
                 .findByVariantVariantIdOrderByCreatedAtDesc(variantId, pageable);
@@ -258,7 +272,7 @@ public class StockManagementService {
         String stockLevelLabel;
         if (v.getStockQuantity() == 0) {
             stockLevelLabel = "OUT_OF_STOCK";
-        } else if (v.getStockQuantity() < 5) {
+        } else if (v.getStockQuantity() <= 5) {
             stockLevelLabel = "LOW";
         } else {
             stockLevelLabel = "GOOD";
@@ -278,6 +292,10 @@ public class StockManagementService {
                 v.getStatus(),
                 stockLevelLabel
         );
+    }
+
+    private void validatePage(int page, int size) {
+        if (page < 0 || size < 1 || size > 1000) throw new IllegalArgumentException("Invalid page or size (maximum 1000)");
     }
 
     private StockHistoryDTO toHistoryDTO(StockHistory h) {

@@ -99,6 +99,8 @@ function Select({
 
 function ModelItemForm({
   categoryId,
+  categoryName,
+  subFolder,
   initial,
   onSaved,
   onCancel,
@@ -107,6 +109,8 @@ function ModelItemForm({
   assetType = "TEXTURE",
 }: {
   categoryId: string;
+  categoryName: string;
+  subFolder?: string;
   initial?: NamedItem;
   onSaved: () => void;
   onCancel: () => void;
@@ -130,7 +134,7 @@ function ModelItemForm({
     setUploading(true);
     try {
       const getUrl = isTexture ? getCategoryTextureUploadUrl : getCategoryAssetUploadUrl;
-      const { uploadUrl, key } = await getUrl(file.name, categoryId);
+      const { uploadUrl, key } = await getUrl(file.name, categoryName || categoryId, subFolder);
       await uploadToS3(uploadUrl, file);
       setModelUrl(key);
       if (!name) setName(file.name.replace(/\.[^.]+$/, ""));
@@ -246,6 +250,8 @@ function ModelItemForm({
 
 function ModelItemList({
   categoryId,
+  categoryName,
+  subFolder,
   items,
   loading,
   onRefresh,
@@ -255,6 +261,8 @@ function ModelItemList({
   assetType = "TEXTURE",
 }: {
   categoryId: string;
+  categoryName: string;
+  subFolder?: string;
   items: NamedItem[];
   loading: boolean;
   onRefresh: () => void;
@@ -306,6 +314,8 @@ function ModelItemList({
                     <td colSpan={3} className="px-2 py-2">
                       <ModelItemForm
                         categoryId={categoryId}
+                        categoryName={categoryName}
+                        subFolder={subFolder}
                         initial={item}
                         createFn={createFn}
                         updateFn={updateFn}
@@ -356,6 +366,8 @@ function ModelItemList({
       {showAdd ? (
         <ModelItemForm
           categoryId={categoryId}
+          categoryName={categoryName}
+          subFolder={subFolder}
           createFn={createFn}
           updateFn={updateFn}
           assetType={assetType}
@@ -662,7 +674,7 @@ export default function AssetsPage() {
     setBaseModelError("");
     setBaseModelUploading(true);
     try {
-      const { uploadUrl, key } = await getCategoryAssetUploadUrl(file.name, selectedCategoryId);
+      const { uploadUrl, key } = await getCategoryAssetUploadUrl(file.name, categoryData?.name ?? selectedCategoryId);
       await uploadToS3(uploadUrl, file);
       setBaseModelUrl(key);
     } catch (err: unknown) {
@@ -871,34 +883,43 @@ export default function AssetsPage() {
             {activeTab === "padars" && (
               <ModelItemList
                 categoryId={selectedCategoryId}
+                categoryName={categoryData?.name ?? selectedCategoryId}
+                subFolder="padar"
                 items={padars}
                 loading={tabLoading}
                 onRefresh={() => fetchTabData("padars")}
                 createFn={createPadar}
                 updateFn={updatePadar}
                 deleteFn={deletePadar}
+                assetType="TEXTURE"
               />
             )}
             {activeTab === "borders" && (
               <ModelItemList
                 categoryId={selectedCategoryId}
+                categoryName={categoryData?.name ?? selectedCategoryId}
+                subFolder="border"
                 items={borders}
                 loading={tabLoading}
                 onRefresh={() => fetchTabData("borders")}
                 createFn={createBorder}
                 updateFn={updateBorder}
                 deleteFn={deleteBorder}
+                assetType="TEXTURE"
               />
             )}
             {activeTab === "buttis" && (
               <ModelItemList
                 categoryId={selectedCategoryId}
+                categoryName={categoryData?.name ?? selectedCategoryId}
+                subFolder="butti"
                 items={buttis}
                 loading={tabLoading}
                 onRefresh={() => fetchTabData("buttis")}
                 createFn={createButti}
                 updateFn={updateButti}
                 deleteFn={deleteButti}
+                assetType="TEXTURE"
               />
             )}
           </div>

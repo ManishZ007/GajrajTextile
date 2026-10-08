@@ -75,8 +75,8 @@ export interface WorkerDetail {
     updatedAt: string;
     verification: {
       id: string;
-      oldStatus: string;
-      newStatus: string;
+      oldStatus: VerificationStatus;
+      newStatus: VerificationStatus;
       changeBy: string;
       changeAt: string;
       reason: string;
@@ -115,6 +115,7 @@ export function createWorker(data: {
   const managerId = typeof window !== "undefined" ? (localStorage.getItem("user_id") ?? "") : "";
   return apiFetch(`${AUTH_SERVICE}/auth/register`, {
     method: "POST",
+    headers: { Authorization: `Bearer ${localStorage.getItem("access_token") ?? ""}` },
     body: JSON.stringify({
       fullName: data.fullName,
       email: data.email,
@@ -171,5 +172,6 @@ export function verifyWorker(
   if (reason) params.set("reason", reason);
   return apiFetch(`${WORKER_SERVICE}/manger-worker/verify/${workerId}?${params}`, {
     method: "PUT",
+    headers: { Authorization: `Bearer ${localStorage.getItem("access_token") ?? ""}` },
   });
 }

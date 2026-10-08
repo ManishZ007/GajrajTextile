@@ -18,7 +18,7 @@ import java.util.List;
 public class Security {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity, com.gajraj.owner.service.jwtService.JWTService jwtService) throws Exception {
 
         httpSecurity.csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(request -> {
@@ -33,10 +33,12 @@ public class Security {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(registry -> registry
-                        .requestMatchers("/owner/**").permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/owner/**").hasRole("OWNER")
+                        .anyRequest().denyAll()
                 );
 
+        httpSecurity.addFilterBefore(new JWTAuthenticationFilter(jwtService), org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();
     }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { ProductImage } from '@/types/productDetail';
 
 interface ImageThumbnailProps {
@@ -24,11 +25,11 @@ export function ImageThumbnail({ image, isSelected, onClick }: ImageThumbnailPro
       }}
       aria-label="Select image"
     >
-      <img
+      <Image
+        fill
         src={image.viewUrl}
         alt=""
-        className="w-full h-full object-cover"
-        loading="lazy"
+        className="object-cover"
       />
     </motion.button>
   );

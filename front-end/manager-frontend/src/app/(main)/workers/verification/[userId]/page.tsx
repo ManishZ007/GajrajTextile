@@ -289,7 +289,7 @@ export default function VerificationDetailPage() {
 
               <div className="border-t border-gray-100 pt-4 flex flex-col gap-4">
                 <InfoRow label="Record ID" value={<span className="font-mono text-xs text-gray-600">{ver.id}</span>} />
-                <InfoRow label="Worker ID" value={<span className="font-mono text-xs text-gray-600">{ver.workerId ?? worker.workerId}</span>} />
+                <InfoRow label="Worker ID" value={<span className="font-mono text-xs text-gray-600">{worker.workerId}</span>} />
                 <InfoRow label="Changed by" value={ver.changeBy} />
                 <InfoRow label="Changed at" value={formatDateTime(ver.changeAt)} />
                 <div className="flex flex-col gap-0.5">

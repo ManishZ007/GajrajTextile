@@ -61,8 +61,9 @@ public class InternalCustomerController {
     public ResponseEntity<?> getAllCustomers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "15") int size,
-            @RequestParam(required = false) String search) {
-        return internalService.getAllCustomers(page, size, search);
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String month) {
+        return internalService.getAllCustomers(page, size, search, month);
     }
 
     @GetMapping("/customers/{customerId}")

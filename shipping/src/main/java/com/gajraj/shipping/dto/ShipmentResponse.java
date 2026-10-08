@@ -13,7 +13,12 @@ import java.util.UUID;
 public class ShipmentResponse {
     private UUID shipmentId;
     private String orderId;
+    private String paymentMethod;
+    private java.math.BigDecimal codAmount;
+    private Boolean codCollected = false;
+
     private String userId;
+    private Boolean orderSyncPending;
     private String provider;
     private String shipmentType;
     private String trackingNumber;

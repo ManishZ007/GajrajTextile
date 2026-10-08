@@ -20,6 +20,17 @@ public class ShippingController {
         this.shippingService = shippingService;
     }
 
+    @GetMapping("/order/{orderId}/timeline")
+    public ResponseEntity<?> timeline(@PathVariable String orderId) {
+        var result = shippingService.timeline(orderId);
+        return result == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/{shipmentId}/cod-collected")
+    public ShipmentResponse collectCod(@PathVariable String shipmentId) {
+        return shippingService.collectCod(shipmentId);
+    }
+
     @PostMapping("/create")
     public ResponseEntity<?> createShipment(@Valid @RequestBody CreateShipmentRequest request) {
         try {

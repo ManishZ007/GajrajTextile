@@ -46,7 +46,7 @@ public class MockShippingProvider implements ShippingProvider {
                 .trackingNumber(trackingNumber)
                 .awbNumber(awbNumber)
                 .courierName("Mock Express Courier")
-                .trackingUrl("https://mock-tracking.example.com/track/" + trackingNumber)
+                .trackingUrl(null)
                 .estimatedDelivery(LocalDateTime.now().plusDays(daysToDelivery))
                 .provider(Provider.MOCK)
                 .build();

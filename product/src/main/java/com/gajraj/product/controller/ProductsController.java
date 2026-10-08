@@ -251,6 +251,8 @@ public class ProductsController {
 
             return ResponseEntity.ok(productsService.updateProduct(productId, dto));
 
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }

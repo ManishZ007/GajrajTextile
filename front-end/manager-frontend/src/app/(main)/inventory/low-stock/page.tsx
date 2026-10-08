@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { usePageTitle } from "@/hooks/usePagetitle";
-import { fetchLowStock, updateStock } from "@/lib/api/productApi";
+import { fetchCompleteInventory, updateStock } from "@/lib/api/productApi";
 import {
   IconChevronDown,
   IconEmptyBox,
@@ -25,7 +25,7 @@ interface LowStockItem {
   stockLevel: "GOOD" | "LOW" | "OUT_OF_STOCK";
 }
 
-const CHANGED_BY = "MANAGER";
+
 const THRESHOLDS = [3, 5, 10, 15, 20] as const;
 
 // ── Restock modal ──────────────────────────────────────────────────────────────
@@ -47,14 +47,14 @@ function RestockModal({
   async function handleSave() {
     setError("");
     const q = Number(qty);
-    if (!qty || isNaN(q) || q <= 0) { setError("Enter a valid quantity"); return; }
+    if (!qty || !Number.isInteger(q) || q <= 0 || q > 2147483647) { setError("Enter a valid quantity"); return; }
     if (!reason.trim()) { setError("Reason is required"); return; }
     setSaving(true);
     try {
       await updateStock(item.variantId, {
         adjustmentAmount: q,
         reason: reason.trim(),
-        changedBy: CHANGED_BY,
+
       });
       onSaved();
       onClose();
@@ -141,22 +141,26 @@ function RestockModal({
 export default function InventoryLowStock() {
   const title = usePageTitle();
 
+  const request = useRef(0);
+  const [loadError, setLoadError] = useState("");
   const [items, setItems] = useState<LowStockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [threshold, setThreshold] = useState<5 | 3 | 10 | 15 | 20>(5);
   const [restockItem, setRestockItem] = useState<LowStockItem | null>(null);
 
   function load(t: number) {
-    setLoading(true);
-    fetchLowStock({ threshold: t, size: 500 })
+    const current = ++request.current;
+    setLoading(true); setLoadError("");
+    fetchCompleteInventory(t)
       .then((data) => {
+        if (current !== request.current) return;
         const list = Array.isArray(data) ? data : (data.content ?? []);
         // Sort by stock ascending so most urgent is first
         list.sort((a: LowStockItem, b: LowStockItem) => a.stockQuantity - b.stockQuantity);
         setItems(list);
       })
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
+      .catch(() => { if (current === request.current) setLoadError("Could not load low-stock items. Please retry."); })
+      .finally(() => { if (current === request.current) setLoading(false); });
   }
 
   useEffect(() => { load(threshold); }, [threshold]);
@@ -210,7 +214,7 @@ export default function InventoryLowStock() {
 
       {/* ── Table card ──────────────────────────────────────────────────────── */}
       <div className="bg-white/40 backdrop-blur-sm border border-white/50 rounded-2xl overflow-hidden">
-        {loading ? (
+        {loadError ? <p role="alert" className="p-6 text-red-600">{loadError} <button className="underline" onClick={() => load(threshold)}>Retry</button></p> : loading ? (
           <div className="flex items-center justify-center py-16 gap-3 text-gray-400">
             <IconLoader /><span className="text-sm">Loading...</span>
           </div>

@@ -16,7 +16,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 
 type MenuSidebarProps = {
@@ -34,11 +34,11 @@ const sidebarVariants = {
   hidden: { x: '-100%' },
   visible: {
     x: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 30 },
+    transition: { type: 'spring', stiffness: 100, damping: 35, mass: 1 },
   },
   exit: {
-    x: '-100%',
-    transition: { type: 'spring', stiffness: 300, damping: 30 },
+    x: '-110%',
+    transition: { type: 'spring', stiffness: 100, damping: 35, mass: 1 },
   },
 };
 
@@ -67,6 +67,9 @@ export const MenuSidebar = ({
   onClose,
 }: MenuSidebarProps): React.JSX.Element => {
   const router = useRouter();
+  const glassFilterId = `menu-glass-${useId().replace(/:/g, '')}`;
+  const panelRef = useRef<HTMLElement>(null);
+  const [edgeMap, setEdgeMap] = useState('');
   const { data: session, status } = useSession();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
@@ -78,6 +81,76 @@ export const MenuSidebar = ({
   const userName = session?.user?.name ?? 'User';
   const userEmail = session?.user?.email ?? '';
   const initial = userName.charAt(0).toUpperCase();
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const updateEdgeMap = () => {
+      const width = panel.offsetWidth;
+      const height = panel.offsetHeight;
+      if (!width || !height) return;
+      // This offscreen canvas only builds an SVG displacement texture on resize.
+      // It never renders the menu or runs an animation loop.
+      const canvas = document.createElement('canvas');
+      const ratio = Math.min(1, 1024 / Math.max(width, height));
+      canvas.width = Math.max(1, Math.round(width * ratio));
+      canvas.height = Math.max(1, Math.round(height * ratio));
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      const pixels = context.createImageData(canvas.width, canvas.height);
+      const radius = Math.min(
+        parseFloat(getComputedStyle(panel).borderTopLeftRadius) || 28,
+        width / 2,
+        height / 2
+      );
+      // this is for border width that we can increase or decrease
+      const edgeWidth = 9.9;
+      const refractiveIndex = 1.45;
+      const maxRefraction = Math.tan(
+        Math.asin(0.98) - Math.asin(0.98 / refractiveIndex)
+      );
+
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const px = ((x + 0.5) / canvas.width) * width - width / 2;
+          const py = ((y + 0.5) / canvas.height) * height - height / 2;
+          const qx = Math.abs(px) - (width / 2 - radius);
+          const qy = Math.abs(py) - (height / 2 - radius);
+          const ox = Math.max(qx, 0);
+          const oy = Math.max(qy, 0);
+          const length = Math.hypot(ox, oy);
+          // Signed distance and outward normal of the rounded rectangle.
+          const distance = length + Math.min(Math.max(qx, qy), 0) - radius;
+          const nx = (length ? ox / length : qx > qy ? 1 : 0) * Math.sign(px);
+          const ny = (length ? oy / length : qy >= qx ? 1 : 0) * Math.sign(py);
+          const depth = Math.max(0, -distance);
+          // A curved lens profile concentrates refraction at the outer rim.
+          // The surface flattens inward, leaving the central backdrop undistorted.
+          const surfaceSlope = Math.max(0, 1 - depth / edgeWidth) * 0.98;
+          const strength =
+            distance <= 0
+              ? Math.tan(
+                  Math.asin(surfaceSlope) -
+                    Math.asin(surfaceSlope / refractiveIndex)
+                ) / maxRefraction
+              : 0;
+          const index = (y * canvas.width + x) * 4;
+          // Sample inward at the rim; neutral channels leave the center intact.
+          pixels.data[index] = Math.round(127.5 - nx * strength * 120);
+          pixels.data[index + 1] = Math.round(127.5 - ny * strength * 120);
+          pixels.data[index + 2] = 128;
+          pixels.data[index + 3] = 255;
+        }
+      }
+      context.putImageData(pixels, 0, 0);
+      setEdgeMap(canvas.toDataURL());
+    };
+
+    const observer = new ResizeObserver(updateEdgeMap);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     fetchItems();
@@ -111,6 +184,68 @@ export const MenuSidebar = ({
 
   return (
     <>
+      {/* Keep the filter mounted without displaying an SVG on the page. */}
+      <svg
+        width="0"
+        height="0"
+        className="absolute pointer-events-none"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <defs>
+          <filter
+            id={glassFilterId}
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+            colorInterpolationFilters="sRGB"
+          >
+            <feImage
+              href={edgeMap || undefined}
+              x="0%"
+              y="0%"
+              width="100%"
+              height="100%"
+              preserveAspectRatio="none"
+              result="edgeMap"
+            />
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="edgeMap"
+              // this is for zooming the background document
+              scale={edgeMap ? 10 : 0}
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
+          </filter>
+        </defs>
+      </svg>
+      <style jsx global>{`
+        [data-menu-glass='${glassFilterId}'] {
+          -webkit-backdrop-filter: blur(20px);
+          backdrop-filter: blur(20px);
+        }
+        [data-menu-glass='${glassFilterId}']::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          pointer-events: none;
+          border-radius: inherit;
+          box-shadow:
+            inset 1px 1px 0 -0.5px rgba(255, 255, 255, 0.4),
+            inset -1px -1px 0 -0.5px rgba(255, 255, 255, 0.2),
+            inset 0 0 3px rgba(255, 255, 255, 0.12);
+        }
+        @supports (backdrop-filter: url(#${glassFilterId})) {
+          [data-menu-glass='${glassFilterId}'][data-glass-ready='true'] {
+            -webkit-backdrop-filter: brightness(1.1) blur(0.75px)
+              url(#${glassFilterId});
+            backdrop-filter: brightness(1.1) blur(4.5px) url(#${glassFilterId});
+          }
+        }
+      `}</style>
       {/* Backdrop */}
       <motion.div
         key="menu-backdrop"
@@ -119,7 +254,7 @@ export const MenuSidebar = ({
         animate="visible"
         exit="exit"
         transition={{ duration: 0.25 }}
-        className="fixed inset-0 z-55 backdrop-blur-sm"
+        className="fixed inset-0 z-55"
         style={{ background: 'rgba(0,0,0,0.30)' }}
         onClick={onClose}
         aria-hidden="true"
@@ -127,17 +262,18 @@ export const MenuSidebar = ({
 
       {/* Sidebar Panel */}
       <motion.aside
+        ref={panelRef}
+        data-menu-glass={glassFilterId}
+        data-glass-ready={Boolean(edgeMap)}
         key="menu-sidebar"
         variants={sidebarVariants}
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="fixed top-0 left-0 h-full w-80 z-60 flex flex-col"
+        className="fixed top-3 bottom-3 left-3 w-80 max-w-[calc(100vw-1.5rem)] z-60 flex flex-col overflow-hidden rounded-[19px]"
         style={{
-          background: 'rgba(255,255,255,0.1)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderRight: '1px solid rgba(255,255,255,0.2)',
+          background: 'rgba(73, 73, 73, 0.189)',
+          border: '1px solid rgba(255,255,255,0.2)',
           boxShadow: '8px 0 40px rgba(0,0,0,0.15)',
         }}
         aria-label="Navigation sidebar"
@@ -149,7 +285,7 @@ export const MenuSidebar = ({
         >
           <span
             className="text-[11px] uppercase tracking-[2px] font-medium"
-            style={{ color: 'rgba(255,255,255,0.55)' }}
+            style={{ color: 'rgba(255, 255, 255, 0.82)' }}
           >
             Menu
           </span>
@@ -195,14 +331,20 @@ export const MenuSidebar = ({
               </div>
             ) : isLoggedIn ? (
               <div>
-                <div className="px-6 pt-5 pb-3 flex items-center gap-3">
+                <button
+                  onClick={() => handleNavigate('/profile')}
+                  className="w-full px-6 pt-5 pb-3 flex items-center gap-3 cursor-pointer transition duration-200 text-left"
+                  style={{ background: 'transparent' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
                   <div
                     className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold select-none shrink-0"
                     style={{ background: '#f0f0f0', color: '#0a0a0a' }}
                   >
                     {initial}
                   </div>
-                  <div className="flex flex-col min-w-0">
+                  <div className="flex flex-col min-w-0 flex-1">
                     <span
                       className="text-[12px] font-medium truncate"
                       style={{ color: '#ffffff' }}
@@ -216,63 +358,52 @@ export const MenuSidebar = ({
                       {userEmail}
                     </span>
                   </div>
-                </div>
+                  <ChevronRight strokeWidth={1.5} className="w-3.5 h-3.5 shrink-0" style={{ color: 'rgba(255,255,255,0.30)' }} />
+                </button>
 
-                <div className="px-4 pb-4 grid grid-cols-2 gap-2.5">
+                <ul className="pb-2">
                   {PROFILE_LINKS.map(({ icon: Icon, label, href }) => (
-                    <button
-                      key={href}
-                      onClick={() => handleNavigate(href)}
-                      className="flex items-center gap-2.5 px-3 py-3 rounded-2xl transition duration-200 cursor-pointer text-left"
-                      style={{
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.20)',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor =
-                          'rgba(255,255,255,0.20)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor =
-                          'rgba(255,255,255,0.20)';
-                      }}
-                    >
-                      <span
-                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                        style={{
-                          background: 'rgba(255,255,255,0.15)',
-                          border: '1px solid rgba(255,255,255,0.20)',
+                    <li key={href} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <button
+                        onClick={() => handleNavigate(href)}
+                        className="w-full flex items-center gap-3 px-6 py-3.5 transition duration-200 cursor-pointer text-left"
+                        style={{ background: 'transparent' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
                         }}
                       >
                         <Icon
                           strokeWidth={1.5}
-                          className="w-3.5 h-3.5"
-                          style={{ color: 'rgba(255,255,255,0.80)' }}
+                          className="w-3.5 h-3.5 shrink-0"
+                          style={{ color: 'rgba(255,255,255,0.55)' }}
                         />
-                      </span>
-                      <span
-                        className="text-[11px] font-medium leading-tight"
-                        style={{ color: '#ffffff' }}
-                      >
-                        {label}
-                      </span>
-                    </button>
+                        <span
+                          className="text-[0.7rem] tracking-[1.5px] uppercase font-light"
+                          style={{ color: 'rgba(255,255,255,0.85)' }}
+                        >
+                          {label}
+                        </span>
+                      </button>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
             ) : (
-              <div className="px-5 py-4 flex flex-col gap-2">
+              <div className="px-6 py-4 flex flex-col gap-2.5">
                 <button
                   onClick={() => handleNavigate('/login')}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-medium transition duration-200 cursor-pointer hover:opacity-80"
-                  style={{ background: '#f0f0f0', color: '#0a0a0a' }}
+                  className="w-full flex items-center justify-center gap-2 py-3 text-[0.7rem] tracking-[1.5px] uppercase font-light transition duration-200 cursor-pointer hover:opacity-80"
+                  style={{ background: 'rgba(255,255,255,0.92)', color: '#0a0a0a' }}
                 >
-                  <LogIn strokeWidth={1.5} className="w-4 h-4" />
+                  <LogIn strokeWidth={1.5} className="w-3.5 h-3.5" />
                   Sign In
                 </button>
                 <button
                   onClick={() => handleNavigate('/register')}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-medium transition duration-200 cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 py-3 text-[0.7rem] tracking-[1.5px] uppercase font-light transition duration-200 cursor-pointer"
                   style={{
                     border: '1px solid rgba(255,255,255,0.20)',
                     color: 'rgba(255,255,255,0.80)',
@@ -284,7 +415,7 @@ export const MenuSidebar = ({
                     e.currentTarget.style.background = 'transparent';
                   }}
                 >
-                  <UserPlus strokeWidth={1.5} className="w-4 h-4" />
+                  <UserPlus strokeWidth={1.5} className="w-3.5 h-3.5" />
                   Create Account
                 </button>
               </div>
@@ -292,53 +423,55 @@ export const MenuSidebar = ({
           </div>
 
           {/* Collections Nav */}
-          <nav className="px-3 py-3">
+          <nav className="py-2">
             <p
-              className="px-4 pt-1 pb-2.5 text-[10px] uppercase tracking-[2px] font-medium"
-              style={{ color: 'rgba(255,255,255,0.55)' }}
+              className="px-6 pt-3 pb-3 text-[0.7rem] tracking-[1.5px] uppercase font-light"
+              style={{ color: 'rgba(255,255,255,0.40)' }}
             >
               Collections
             </p>
-            <ul className="flex flex-col gap-0.5">
-              {items.map((item) => (
-                <li key={item.categoryId}>
-                  <button
-                    onClick={() =>
-                      handleNavigate(
-                        `/collections/${item.name.toLowerCase().replace(/\s+/g, '-')}?categoryId=${item.categoryId}`
-                      )
-                    }
-                    className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition duration-200 cursor-pointer group"
-                    style={{ background: 'transparent' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                      (e.currentTarget.querySelector('.item-label') as HTMLElement | null)
-                        ?.style.setProperty('color', '#ffffff');
-                      (e.currentTarget.querySelector('.item-chevron') as HTMLElement | null)
-                        ?.style.setProperty('color', 'rgba(255,255,255,0.80)');
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
-                      (e.currentTarget.querySelector('.item-label') as HTMLElement | null)
-                        ?.style.setProperty('color', 'rgba(255,255,255,0.80)');
-                      (e.currentTarget.querySelector('.item-chevron') as HTMLElement | null)
-                        ?.style.setProperty('color', 'rgba(255,255,255,0.55)');
-                    }}
-                  >
-                    <span
-                      className="item-label text-[12px] font-medium transition duration-200"
-                      style={{ color: 'rgba(255,255,255,0.80)' }}
+            <ul className="flex flex-col">
+              {[...items]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((item) => (
+                  <li key={item.categoryId} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                    <button
+                      onClick={() =>
+                        handleNavigate(
+                          `/collections/${item.name.toLowerCase().replace(/\s+/g, '-')}?categoryId=${item.categoryId}`
+                        )
+                      }
+                      className="w-full flex items-center justify-between px-6 py-4 transition duration-200 cursor-pointer"
+                      style={{ background: 'transparent' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                        (e.currentTarget.querySelector('.item-label') as HTMLElement | null)
+                          ?.style.setProperty('color', '#ffffff');
+                        (e.currentTarget.querySelector('.item-chevron') as HTMLElement | null)
+                          ?.style.setProperty('color', 'rgba(255,255,255,0.80)');
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                        (e.currentTarget.querySelector('.item-label') as HTMLElement | null)
+                          ?.style.setProperty('color', 'rgba(255,255,255,0.75)');
+                        (e.currentTarget.querySelector('.item-chevron') as HTMLElement | null)
+                          ?.style.setProperty('color', 'rgba(255,255,255,0.35)');
+                      }}
                     >
-                      {toCapitalCase(item.name)}
-                    </span>
-                    <ChevronRight
-                      strokeWidth={1.5}
-                      className="item-chevron w-3.5 h-3.5 transition duration-200"
-                      style={{ color: 'rgba(255,255,255,0.55)' }}
-                    />
-                  </button>
-                </li>
-              ))}
+                      <span
+                        className="item-label text-[13.5px] font-light transition duration-200"
+                        style={{ color: 'rgba(255,255,255,0.75)' }}
+                      >
+                        {toCapitalCase(item.name)}
+                      </span>
+                      <ChevronRight
+                        strokeWidth={1.5}
+                        className="item-chevron w-3.5 h-3.5 transition duration-200"
+                        style={{ color: 'rgba(255,255,255,0.35)' }}
+                      />
+                    </button>
+                  </li>
+                ))}
             </ul>
           </nav>
 
@@ -351,12 +484,9 @@ export const MenuSidebar = ({
               <button
                 onClick={handleSignOut}
                 className="w-full flex items-center gap-2.5 text-[13px] transition duration-200 cursor-pointer"
-                style={{ color: 'rgba(255,255,255,0.55)' }}
+                style={{ color: 'rgba(255, 255, 255, 0.992)' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color = '#ef4444';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.55)';
                 }}
               >
                 <LogOut strokeWidth={1.5} className="w-4 h-4" />

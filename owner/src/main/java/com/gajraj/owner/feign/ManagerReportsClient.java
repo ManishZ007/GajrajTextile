@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
-@FeignClient("MANAGER")
+@FeignClient(name="MANAGER", configuration=ManagerAuthorization.class)
 public interface ManagerReportsClient {
 
     // Reports

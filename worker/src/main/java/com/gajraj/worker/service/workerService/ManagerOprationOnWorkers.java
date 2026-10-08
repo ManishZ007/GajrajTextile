@@ -33,10 +33,10 @@ public class ManagerOprationOnWorkers {
     public ResponseEntity<?> verifyWorker(
             @PathVariable UUID workerId,
             @RequestParam String status,
-            @RequestParam String changeBy,
+            org.springframework.security.core.Authentication authentication,
             @RequestParam(required = false) String reason) {
         try {
-            return ResponseEntity.ok(workerService.updateVerificationStatus(workerId, status, changeBy, reason));
+            return ResponseEntity.ok(workerService.updateVerificationStatus(workerId, status, authentication.getName(), reason));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }

@@ -18,6 +18,8 @@ import java.util.UUID;
 
 @Repository
 public interface CustomerRepo extends JpaRepository<Customers, UUID> {
+    Page<Customers> findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(java.time.LocalDateTime start, java.time.LocalDateTime end, Pageable pageable);
+
 
     @Query("SELECT c FROM Customers c WHERE LOWER(c.user_id) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<Customers> searchByUserId(@Param("search") String search, Pageable pageable);

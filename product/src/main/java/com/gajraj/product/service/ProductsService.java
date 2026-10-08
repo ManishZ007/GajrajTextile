@@ -22,6 +22,9 @@ import java.util.*;
 public class ProductsService {
 
     @Autowired
+    private ProductVariantEditor variantEditor;
+
+    @Autowired
     private ProductsRepo productsRepo;
 
     @Autowired
@@ -52,6 +55,9 @@ public class ProductsService {
     private BorderColorRepo borderColorRepo;
 
     @Autowired
+    private StockHistoryRepo stockHistoryRepo;
+
+    @Autowired
     private S3Service s3Service;
 
     @Transactional
@@ -69,15 +75,7 @@ public class ProductsService {
 
         if (dto.getVariants() != null) {
             for (ProductCreateRequestDTO.VariantRequest v : dto.getVariants()) {
-                ProductVariants variant = new ProductVariants();
-                variant.setProduct(saved);
-                variant.setSize(v.getSize());
-                variant.setColor(v.getColor());
-                variant.setPrice(v.getPrice());
-                variant.setStockQuantity(v.getStockQuantity());
-                variant.setSku(v.getSku());
-                variant.setStatus(v.getStatus());
-                productVariantsRepo.save(variant);
+                variantEditor.create(saved, v);
             }
         }
 
@@ -190,6 +188,11 @@ public class ProductsService {
                         });
                     }
 
+                    List<ProductListResponseDTO.AttributeSummary> attributes = p.getAttributes() == null ? List.of() :
+                            p.getAttributes().stream()
+                                    .map(a -> new ProductListResponseDTO.AttributeSummary(a.getAttribute_id(), a.getAttributeKey(), a.getAttributeValue()))
+                                    .toList();
+
                     return new ProductListResponseDTO.ProductSummary(
                             p.getProductId(),
                             p.getName(),
@@ -202,7 +205,8 @@ public class ProductsService {
                             primaryImage,
                             p.getCreatedAt(),
                             isCustomizable,
-                            customOptions
+                            customOptions,
+                            attributes
                     );
                 })
                 .toList();
@@ -218,7 +222,7 @@ public class ProductsService {
 
     @Transactional
     public ProductListResponseDTO.ProductSummary updateProduct(UUID productId, ProductCreateRequestDTO dto) {
-        Products product = productsRepo.findById(productId)
+        Products product = productsRepo.lockForPrice(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found: " + productId));
 
         ProductCategories category = productCategoriesRepo.findById(dto.getCategoryId())
@@ -230,24 +234,10 @@ public class ProductsService {
         product.setDescription(dto.getDescription());
         product.setStatus(dto.getStatus());
 
-        product.getVariants().clear();
+        variantEditor.update(product, dto.getVariants());
         product.getAttributes().clear();
         product.getImages().clear();
         productsRepo.saveAndFlush(product);
-
-        if (dto.getVariants() != null && !dto.getVariants().isEmpty()) {
-            for (ProductCreateRequestDTO.VariantRequest v : dto.getVariants()) {
-                ProductVariants variant = new ProductVariants();
-                variant.setProduct(product);
-                variant.setSize(v.getSize());
-                variant.setColor(v.getColor());
-                variant.setPrice(v.getPrice());
-                variant.setStockQuantity(v.getStockQuantity());
-                variant.setSku(v.getSku());
-                variant.setStatus(v.getStatus());
-                product.getVariants().add(variant);
-            }
-        }
 
         if (dto.getAttributes() != null && !dto.getAttributes().isEmpty()) {
             for (ProductCreateRequestDTO.AttributeRequest a : dto.getAttributes()) {
@@ -304,7 +294,8 @@ public class ProductsService {
                 primaryImage,
                 saved.getCreatedAt(),
                 saved.getCategory().getCustomizable(),
-                null
+                null,
+                List.of()
         );
     }
 

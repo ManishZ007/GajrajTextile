@@ -117,6 +117,65 @@ function stockClass(qty: number) {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
+function ProductIdField({ productId }: { productId: string }) {
+  const [visible, setVisible] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+
+  async function copyId() {
+    try {
+      await navigator.clipboard.writeText(productId);
+      setCopyStatus("copied");
+    } catch {
+      setVisible(true);
+      setCopyStatus("error");
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-white/60 bg-white/30 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <label htmlFor="preview-product-id" className="text-[10px] font-medium text-[#616a7c] uppercase tracking-wide">
+          Product ID
+        </label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setVisible((current) => !current)}
+            aria-controls="preview-product-id"
+            aria-expanded={visible}
+            aria-label={visible ? "Hide product ID" : "Show product ID"}
+            className="rounded-md px-2 py-1 text-xs text-gray-600 hover:bg-white/60 focus-visible:outline-2 focus-visible:outline-black"
+          >
+            {visible ? "Hide" : "Show"}
+          </button>
+          <button
+            type="button"
+            onClick={copyId}
+            aria-label="Copy product ID"
+            className="rounded-md bg-black px-2.5 py-1 text-xs text-white hover:bg-gray-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+          >
+            {copyStatus === "copied" ? "Copied!" : "Copy"}
+          </button>
+        </div>
+      </div>
+      <input
+        id="preview-product-id"
+        readOnly
+        value={visible ? productId : "Hidden"}
+        onFocus={(event) => visible && event.currentTarget.select()}
+        className="mt-2 w-full min-w-0 rounded-md border border-white/60 bg-white/40 px-2 py-2 font-mono text-xs text-gray-700 focus:outline-2 focus:outline-gray-400"
+      />
+      <p aria-live="polite" role="status" className="mt-2 text-xs text-gray-500">
+        {copyStatus === "error"
+          ? "Could not copy. Select the ID above and copy it manually."
+          : copyStatus === "copied"
+            ? "Product ID copied. Paste it into your price change request."
+            : "Copy this ID for a price change request."}
+      </p>
+    </div>
+  );
+}
+
 export default function ProductPreview() {
   usePageTitle();
   const params = useParams();
@@ -655,6 +714,8 @@ export default function ProductPreview() {
                 {product.name}
               </p>
             </div>
+
+            <ProductIdField key={product.productId || productId} productId={product.productId || productId} />
 
             <div>
               <span className="text-[10px] font-medium text-[#616a7c] uppercase tracking-wide">

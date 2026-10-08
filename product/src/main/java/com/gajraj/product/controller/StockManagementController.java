@@ -29,7 +29,7 @@ public class StockManagementController {
             @RequestParam(defaultValue = "newest") String sortBy) {
         try {
             return ResponseEntity.ok(stockManagementService.getAllInventory(page, size, stockLevel, search, categoryId, sortBy));
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | ArithmeticException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
@@ -49,12 +49,13 @@ public class StockManagementController {
     }
 
     @PutMapping("/update/{variantId}")
-    public ResponseEntity<?> updateStock(@PathVariable UUID variantId, @RequestBody StockUpdateDTO dto) {
+    public ResponseEntity<?> updateStock(@PathVariable UUID variantId, @RequestBody StockUpdateDTO dto, java.security.Principal principal) {
         try {
+            dto.setChangedBy(principal.getName());
             return ResponseEntity.ok(stockManagementService.updateStock(variantId, dto));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | ArithmeticException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
@@ -62,12 +63,14 @@ public class StockManagementController {
     }
 
     @PutMapping("/bulk-update")
-    public ResponseEntity<?> bulkUpdateStock(@RequestBody List<StockUpdateDTO.BulkStockUpdateItem> items) {
+    public ResponseEntity<?> bulkUpdateStock(@RequestBody List<StockUpdateDTO.BulkStockUpdateItem> items, java.security.Principal principal) {
         try {
+            if (items == null || items.isEmpty() || items.stream().anyMatch(java.util.Objects::isNull)) throw new IllegalArgumentException("Stock items are required");
+            items.forEach(item -> item.setChangedBy(principal.getName()));
             return ResponseEntity.ok(stockManagementService.bulkUpdateStock(items));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | ArithmeticException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
@@ -82,7 +85,7 @@ public class StockManagementController {
             @RequestParam(required = false) String changeType) {
         try {
             return ResponseEntity.ok(stockManagementService.getStockHistory(page, size, variantId, changeType));
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | ArithmeticException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));

@@ -13,14 +13,20 @@ public class PaymentRecord {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Version private Long revision;
 
     private String razorpayOrderId;
     private String razorpayPaymentId;
     private String receipt;
     private Long amount;
+    @Column(precision=10, scale=2)
+    private java.math.BigDecimal codAmount;
     private String currency;
 
     private String orderId;
+    private String userId;
+    private Boolean orderConfirmed = false;
+    private LocalDateTime reservationExpiresAt;
 
     @Enumerated(EnumType.STRING)
     private PaymentStatus status;
@@ -43,6 +49,6 @@ public class PaymentRecord {
     }
 
     public enum PaymentStatus {
-        CREATED, INITIATED, PAID, FAILED, COD_PENDING
+        CREATED, INITIATED, PAID, FAILED, COD_PENDING, CANCELLED
     }
 }

@@ -22,6 +22,7 @@ public class InternalManagerService {
         try {
             Managers newUserData = new Managers();
 
+            newUserData.setStatus(Managers.ManagerStatus.ACTIVE);
             newUserData.setUserId(saveUserDTO.getUser_id());
 
             Managers saveManager = managerRepo.save(newUserData);

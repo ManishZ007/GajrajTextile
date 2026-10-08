@@ -21,6 +21,10 @@ public class Security {
 
 
     private final JWTService jwtService;
+    @org.springframework.beans.factory.annotation.Value("${manager.internal.auth-token:}")
+    private String authToken;
+    @org.springframework.beans.factory.annotation.Value("${manager.internal.order-token:}")
+    private String orderToken;
 
     public Security(JWTService jwtService) {
         this.jwtService = jwtService;
@@ -43,10 +47,16 @@ public class Security {
                 .sessionManagement(AbstractHttpConfigurer::disable);
 
         httpSecurity.authorizeHttpRequests(registry -> registry
-                .requestMatchers("/internal/**").permitAll()
-                .requestMatchers("/manager/**").permitAll()
-                .anyRequest()
-                .authenticated()).addFilterBefore(new JWTAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
+                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/internal/saveNewUser").hasRole("AUTH_SERVICE")
+                .requestMatchers("/internal/order-flow/**").hasRole("ORDER_SERVICE")
+                .requestMatchers("/owner/**", "/internal/managers/**",
+                    "/manager/price-changes/approve/**", "/manager/reports/approve/**",
+                    "/manager/reports/mark-read/**").hasRole("OWNER")
+                .requestMatchers("/manager/**").hasAnyRole("MANAGER", "OWNER")
+                .anyRequest().denyAll())
+                .addFilterBefore(new JWTAuthenticationFilter(jwtService, authToken, orderToken), UsernamePasswordAuthenticationFilter.class);
+
 
 
         return httpSecurity.build();

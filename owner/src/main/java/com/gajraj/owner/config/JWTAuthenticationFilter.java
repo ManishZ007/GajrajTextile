@@ -21,7 +21,6 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
         this.jwtService = jwtService;
     }
 
-
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -31,11 +30,10 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
 
         String path = request.getRequestURI();
 
-        if(path.contains("/internal")) {
+        if ("OPTIONS".equals(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
         }
-
         String token = parseJwt(request);
 
         try {
@@ -50,28 +48,27 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
             }
 
             String userId = jwtService.extractUserId(token);
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userId, null, null);
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userId, null, java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + jwtService.extractUserRole(token).replace("ROLE_", ""))));
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            filterChain.doFilter(request, response);
         }catch (io.jsonwebtoken.ExpiredJwtException ex) {
-            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has expired. Please refresh or log in again.");
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has expired. Please refresh or log in again."); return;
         } catch (io.jsonwebtoken.SignatureException ex) {
-            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token signature");
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token signature"); return;
         } catch (Exception ex) {
-            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: " + ex.getMessage());
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid authentication token"); return;
         }
 
 
 
+            filterChain.doFilter(request, response);
     }
-
 
     private String parseJwt(HttpServletRequest request) {
         String headerAuth = request.getHeader("Authorization");
 
-        if(StringUtils.hasText(headerAuth) && headerAuth.contains("Bearer ")) {
+        if(StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {
             return headerAuth.substring(7);
         }
         return null;

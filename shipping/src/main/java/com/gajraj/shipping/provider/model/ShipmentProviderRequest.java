@@ -8,6 +8,9 @@ import lombok.Data;
 @Builder
 public class ShipmentProviderRequest {
     private String orderId;
+    private String paymentMethod;
+    private java.math.BigDecimal codAmount;
+
     private String userId;
     private ShipmentType shipmentType;
     private String recipientName;

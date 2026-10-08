@@ -69,6 +69,8 @@ export function ProductSustanibility() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '10px',
+                letterSpacing: '.6px',
+                wordSpacing: '.3px',
               }}
             >
               {toCapitalCase(PRODUCT_SUSTANIBILITY)}

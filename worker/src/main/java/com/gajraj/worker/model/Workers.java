@@ -37,6 +37,9 @@ public class Workers {
     @Column(name = "user_id")
     private String userId;
 
+    @Column(name = "created_by_manager_id")
+    private String createdByManagerId;
+
     @Column(name = "worker_profile_image")
     private String workerProfileImage;
 

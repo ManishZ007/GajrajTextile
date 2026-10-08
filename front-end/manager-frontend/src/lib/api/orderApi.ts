@@ -8,6 +8,7 @@ export async function fetchAllOrders(
     size?: number;
     status?: string;
     search?: string;
+    userId?: string;
     orderType?: string;
   } = {},
 ) {
@@ -17,20 +18,24 @@ export async function fetchAllOrders(
   if (params.status) query.set("status", params.status);
   if (params.search) query.set("search", params.search);
   if (params.orderType) query.set("orderType", params.orderType);
-  return apiFetch(`${ORDER_SERVICE}/order/all?${query}`);
+  if (params.userId) query.set("userId", params.userId);
+  return apiFetch(`${ORDER_SERVICE}/manager/orders/all?${query}`);
 }
 
 export async function fetchOrderById(orderId: string) {
-  return apiFetch(`${ORDER_SERVICE}/order/${orderId}`);
+  return apiFetch(`${ORDER_SERVICE}/manager/orders/${orderId}`);
 }
 
 export async function cancelOrder(orderId: string) {
-  return apiFetch(`${ORDER_SERVICE}/order/cancel/${orderId}`, { method: "PUT" });
+  return apiFetch(`${ORDER_SERVICE}/manager/orders/${orderId}/cancel`, { method: "PUT" });
 }
 
 export async function updateOrderStatus(orderId: string, status: string) {
-  return apiFetch(`${ORDER_SERVICE}/order/status/${orderId}?status=${status}`, {
+  return apiFetch(`${ORDER_SERVICE}/manager/orders/${orderId}/status?status=${status}`, {
     method: "PUT",
   });
 }
 
+export async function takeOrder(orderId: string) {
+  return apiFetch(`${ORDER_SERVICE}/manager/orders/${orderId}/take`, { method: "PUT" });
+}
