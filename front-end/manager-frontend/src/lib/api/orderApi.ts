@@ -10,6 +10,7 @@ export async function fetchAllOrders(
     search?: string;
     userId?: string;
     orderType?: string;
+    category?: string;
   } = {},
 ) {
   const query = new URLSearchParams();
@@ -18,6 +19,7 @@ export async function fetchAllOrders(
   if (params.status) query.set("status", params.status);
   if (params.search) query.set("search", params.search);
   if (params.orderType) query.set("orderType", params.orderType);
+  if (params.category) query.set("category", params.category);
   if (params.userId) query.set("userId", params.userId);
   return apiFetch(`${ORDER_SERVICE}/manager/orders/all?${query}`);
 }

@@ -112,7 +112,7 @@ const METHODS: {
   {
     id: 'RESERVE',
     label: 'Reserve This Piece',
-    desc: 'Our team will contact you via WhatsApp to arrange payment',
+    desc: 'Manager confirmation, then a 40% or 50% deposit using the shared QR',
     icon: Phone,
   },
 ];
@@ -393,6 +393,8 @@ export default function PaymentPage() {
   const [method, setMethod] = useState<PaymentMethod>('COD');
   const [cartCleanupPending, setCartCleanupPending] = useState(false);
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
+  const [depositPercent, setDepositPercent] = useState(40);
+  const reservationRequestId = useRef<string | null>(null);
 
   const [pendingOrder, setPendingOrder] = useState<OrderResponse | null>(null);
   const [completedPayment, setCompletedPayment] = useState<RazorpayHandlerResponse | null>(null);
@@ -403,10 +405,10 @@ export default function PaymentPage() {
 
   const isHighValue = (cart?.estimatedTotal ?? 0) > COD_LIMIT;
 
-  // Build the list of methods shown to user — swap out COD for RESERVE on high-value orders
+  // Reservation requests are available for ready-made baskets, independent of the COD limit.
   const availableMethods = METHODS.filter((m) => {
     if (m.id === 'COD' && isHighValue) return false;
-    if (m.id === 'RESERVE' && !isHighValue) return false;
+    if (m.id === 'RESERVE' && !cart?.items.every(i => i.itemType === 'READY_MADE' && i.variant)) return false;
     return true;
   });
 
@@ -517,29 +519,28 @@ export default function PaymentPage() {
     setErrorMsg(null);
     setPageState('creating_order');
     try {
-      const r = await clientFetch('/api/order/reserve', {
+      reservationRequestId.current ??= crypto.randomUUID();
+      const r = await clientFetch('/api/reservations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: profile.authentication.auth.userId,
+          requestId: reservationRequestId.current,
+          depositPercent,
           addressId: String(addressId),
-          totalAmount: cart.estimatedTotal,
           items: cart.items.map((item) => ({
             productId: item.product.productId,
             variantId: item.variant?.variantId ?? null,
             quantity: item.quantity,
-            subtotal: item.subtotal,
-            orderType: item.itemType ?? 'READY_MADE',
           })),
         }),
       });
-      if (!r.ok) throw new Error('Reservation failed');
       const data = await r.json();
-      setSuccessOrderId(data.orderId ?? data.reservationId ?? null);
-      await clearCart();
+      if (!r.ok) throw new Error(data.error ?? 'Reservation failed');
+      setSuccessOrderId(data.reservation.id);
+      try { await clearCart(); } catch { setCartCleanupPending(true); }
       setPageState('success');
-    } catch {
-      setErrorMsg('Could not place reservation. Please try again or contact us directly.');
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Could not place reservation. Please retry.');
       setPageState('failed');
     }
   };
@@ -822,11 +823,11 @@ export default function PaymentPage() {
             className="font-light text-[#1B1B1B] tracking-[-0.02em]"
             style={{ fontSize: 'clamp(1.4rem, 4vw, 2rem)' }}
           >
-            {isReservation ? 'Reservation confirmed' : method === 'COD' ? 'Order placed' : 'Payment successful'}
+            {isReservation ? 'Reservation requested' : method === 'COD' ? 'Order placed' : 'Payment successful'}
           </h1>
           <p className="text-[13px] font-light text-[#1B1B1B]/55 leading-relaxed">
             {isReservation
-              ? 'Your piece is reserved. Our team will reach out within 24 hours via WhatsApp to confirm details and arrange payment.'
+              ? 'Our team will contact you to confirm availability. Your stock hold starts after manager confirmation.'
               : method === 'COD'
                 ? 'Your order is confirmed. Pay when it arrives.'
                 : 'Your payment is verified and order has been placed.'}
@@ -844,9 +845,9 @@ export default function PaymentPage() {
             <p className="text-[0.625rem] tracking-[2px] uppercase text-[#1B1B1B]/40 mb-1">What happens next</p>
             {[
               'Our team reviews your reservation',
-              'You receive a WhatsApp message with product details and payment options',
-              'Payment is arranged at your convenience — UPI, bank transfer, or in person',
-              'Order is dispatched once payment is confirmed',
+              'After confirmation, transfer your selected deposit within 24 hours',
+              'Upload your bank transfer proof for manager verification',
+              'Pay the remaining balance before quality checks and dispatch',
             ].map((step, i) => (
               <div key={i} className="flex items-start gap-3">
                 <span
@@ -867,7 +868,7 @@ export default function PaymentPage() {
           transition={{ delay: isReservation ? 0.45 : 0.35 }}
           onClick={() =>
             router.push(
-              successOrderId ? `/orders/${successOrderId}` : '/orders'
+              successOrderId ? `${isReservation ? '/reservations' : '/orders'}/${successOrderId}` : '/orders'
             )
           }
           className="bg-black rounded-full  text-white text-[0.725rem] tracking-[1.5px] uppercase px-10 py-4 hover:opacity-80 transition-opacity duration-200 cursor-pointer"
@@ -1589,6 +1590,14 @@ export default function PaymentPage() {
           </div>
 
           {/* CTA */}
+          {method === 'RESERVE' && <fieldset className="mb-5 border border-black/15 p-4 text-sm">
+            <legend className="px-2">Choose your initial deposit</legend>
+            {[40, 50].map(percent => <label key={percent} className="mr-6 inline-flex items-center gap-2">
+              <input type="radio" name="deposit" checked={depositPercent === percent} disabled={isProcessing}
+                onChange={() => setDepositPercent(percent)} />{percent}%
+            </label>)}
+            <p className="mt-3 text-black/60">Your manager will share a payment QR through WhatsApp after confirmation. Submit proof within the 24-hour hold; stock stays held during review. Full payment is required before dispatch.</p>
+          </fieldset>}
           <button
             onClick={handlePlaceOrder}
             disabled={isProcessing}
@@ -1604,7 +1613,7 @@ export default function PaymentPage() {
             ) : method === 'COD' ? (
               'Place Order'
             ) : method === 'RESERVE' ? (
-              'Confirm Reservation'
+              'Request Reservation'
             ) : (
               `Pay ${formatINR(cart?.estimatedTotal ?? 0)}`
             )}

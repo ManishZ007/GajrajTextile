@@ -207,6 +207,7 @@ export default function OrdersAll() {
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
 
@@ -236,7 +237,7 @@ export default function OrdersAll() {
   useEffect(() => {
     const timer = setTimeout(fetchData, 300);
     return () => clearTimeout(timer);
-  }, [search, statusFilter, typeFilter, page]);
+  }, [search, statusFilter, typeFilter, categoryFilter, page]);
 
   async function fetchData() {
     setLoading(true);
@@ -248,6 +249,7 @@ export default function OrdersAll() {
       if (search.trim()) params.search = search.trim();
       if (statusFilter !== "ALL") params.status = statusFilter;
       if (typeFilter !== "ALL") params.orderType = typeFilter;
+      if (categoryFilter !== "ALL") params.category = categoryFilter;
       const data: PagedResponse = await fetchAllOrders(params);
       setOrders(data.content ?? []);
       setTotalElements(data.totalElements ?? 0);
@@ -315,7 +317,7 @@ export default function OrdersAll() {
 
   const isEmpty = !loading && orders.length === 0;
   const isFiltered =
-    statusFilter !== "ALL" || typeFilter !== "ALL" || search.trim() !== "";
+    statusFilter !== "ALL" || typeFilter !== "ALL" || categoryFilter !== "ALL" || search.trim() !== "";
 
   console.log(orders);
 
@@ -324,6 +326,7 @@ export default function OrdersAll() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-800">{title}</h1>
+        <a href="/orders/reservations" className="mt-3 inline-block text-sm underline">In-stock reservations</a>
       </div>
 
       {/* Stat pills — horizontal scroll */}
@@ -407,6 +410,12 @@ export default function OrdersAll() {
           <option value="ALL">All types</option>
           <option value="READY_MADE">Ready-made</option>
           <option value="CUSTOM">Custom</option>
+        </Select>
+        <Select value={categoryFilter} onChange={(v) => { setCategoryFilter(v); setPage(0); }}>
+          <option value="ALL">All order categories</option>
+          <option value="ORD">Normal orders (ORD)</option>
+          <option value="RES">In-stock reservations (RES)</option>
+          <option value="ORES">Out-of-stock reservations (ORES)</option>
         </Select>
       </div>
 

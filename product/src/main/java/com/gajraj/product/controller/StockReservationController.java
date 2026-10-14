@@ -20,6 +20,10 @@ public class StockReservationController {
     public StockReservation reserve(@PathVariable UUID id, @RequestHeader("X-Service-Token") String supplied, @RequestBody Map<UUID,Integer> items) { authorize(supplied); return service.reserve(id, items); }
     @PutMapping("/{id}/commit")
     public void commit(@PathVariable UUID id, @RequestHeader("X-Service-Token") String supplied) { authorize(supplied); service.commit(id); }
+    @PostMapping("/{id}/customer-hold")
+    public StockReservation customerHold(@PathVariable UUID id, @RequestHeader("X-Service-Token") String supplied, @RequestBody Map<UUID,Integer> items) { authorize(supplied); return service.reserveCustomer(id, items); }
+    @PutMapping("/{id}/review")
+    public void review(@PathVariable UUID id, @RequestHeader("X-Service-Token") String supplied, @RequestParam boolean pending) { authorize(supplied); service.review(id, pending); }
     @PutMapping("/{id}/release")
     public void release(@PathVariable UUID id, @RequestHeader("X-Service-Token") String supplied) { authorize(supplied); service.release(id, false); }
     @PutMapping("/{id}/cancel")

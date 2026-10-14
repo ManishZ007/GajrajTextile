@@ -10,4 +10,6 @@ public interface StockReservationRepo extends JpaRepository<StockReservation, UU
     @Query("select r from StockReservation r where r.orderId = :id")
     Optional<StockReservation> lock(@Param("id") UUID id);
     List<StockReservation> findTop100ByStateAndExpiresAtBefore(StockReservation.State state, Instant time);
+    @Query("select r from StockReservation r where r.state = :state and r.expiresAt < :time and (r.reviewPending is null or r.reviewPending = false) order by r.expiresAt")
+    List<StockReservation> expirable(@Param("state") StockReservation.State state, @Param("time") Instant time, org.springframework.data.domain.Pageable page);
 }

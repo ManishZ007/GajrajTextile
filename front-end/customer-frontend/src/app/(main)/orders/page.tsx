@@ -339,6 +339,7 @@ export default function OrdersPage() {
         >
           My Orders
         </h1>
+        <a className="mt-4 inline-block text-sm underline" href="/reservations">My in-stock reservations</a>
         {!loading && totalElements > 0 && (
           <p className="mt-4 text-[13px] text-[#1B1B1B]/75 font-light">
             {totalElements} order{totalElements !== 1 ? 's' : ''} placed

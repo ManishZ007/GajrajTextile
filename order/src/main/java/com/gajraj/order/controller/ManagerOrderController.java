@@ -28,9 +28,10 @@ public class ManagerOrderController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String userId,
-            @RequestParam(required = false) String orderType) {
+            @RequestParam(required = false) String orderType,
+            @RequestParam(required = false) String category) {
         try {
-            OrderListResponseDTO response = ordersService.getAllOrders(page, size, status, search, userId, orderType);
+            OrderListResponseDTO response = ordersService.getAllOrders(page, size, status, search, userId, orderType,category);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));

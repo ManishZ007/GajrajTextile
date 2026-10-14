@@ -69,7 +69,7 @@ public class OrdersService {
             dto.setTotalAmount(total);
         }
 
-        String orderNumber = String.format("ORD-%d-%04d", LocalDate.now().getYear(), ordersRepo.count() + 1);
+        String orderNumber = OrderNumbers.next(ordersRepo,"ORD",LocalDate.now().getYear());
 
         Orders order = new Orders();
         order.setOrderNumber(orderNumber);
@@ -114,8 +114,14 @@ public class OrdersService {
     }
     @Transactional(readOnly = true)
     public OrderListResponseDTO getAllOrders(int page, int size, String status, String search, String userId, String orderType) {
+        return getAllOrders(page,size,status,search,userId,orderType,null);
+    }
+    @Transactional(readOnly = true)
+    public OrderListResponseDTO getAllOrders(int page, int size, String status, String search, String userId, String orderType,String category) {
+        if(category!=null && !Set.of("ORD","RES","ORES").contains(category)) throw new IllegalArgumentException("Invalid order category");
         Specification<Orders> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+            if(category!=null) predicates.add(cb.like(root.get("orderNumber"),category+"-%"));
 
             if (status != null && !status.isBlank()) {
                 try {

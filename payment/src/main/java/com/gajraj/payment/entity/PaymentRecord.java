@@ -21,6 +21,8 @@ public class PaymentRecord {
     private Long amount;
     @Column(precision=10, scale=2)
     private java.math.BigDecimal codAmount;
+    @Column(precision=12, scale=2)
+    private java.math.BigDecimal bankAmount;
     private String currency;
 
     private String orderId;

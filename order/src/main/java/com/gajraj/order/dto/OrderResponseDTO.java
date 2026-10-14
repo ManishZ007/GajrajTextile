@@ -32,6 +32,9 @@ public class OrderResponseDTO {
     private LocalDateTime updatedAt;
     private List<OrderItemDTO> items;
     private CustomizationDTO customization;
+    public String getOrderType() {
+        return items != null && !items.isEmpty() && items.stream().allMatch(i -> "READY_MADE".equals(i.getOrderType())) ? "READY_MADE" : "CUSTOM";
+    }
 
     @Data
     @AllArgsConstructor

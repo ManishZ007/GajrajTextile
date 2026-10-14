@@ -20,6 +20,7 @@ public class ManagerPaymentController {
         return repository.findFirstByOrderIdOrderByIdDesc(orderId).map(record -> {
             BigDecimal amount = "COD".equals(record.getPaymentMethod()) && record.getCodAmount() != null
                     ? record.getCodAmount() : record.getAmount() == null ? null : BigDecimal.valueOf(record.getAmount());
+            if ("BANK_TRANSFER".equals(record.getPaymentMethod())) amount = record.getBankAmount();
             return ResponseEntity.ok(new Summary(record.getStatus() == null ? null : record.getStatus().name(),
                     record.getPaymentMethod(), amount, record.getCurrency(), record.getRazorpayPaymentId(), record.getUpdatedAt()));
         }).orElseGet(() -> ResponseEntity.notFound().build());

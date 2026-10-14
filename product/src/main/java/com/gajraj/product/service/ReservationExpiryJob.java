@@ -11,7 +11,7 @@ public class ReservationExpiryJob {
     public ReservationExpiryJob(StockReservationRepo repo, StockReservationService service) { this.repo=repo; this.service=service; }
     @Scheduled(fixedDelayString="${stock.reservation.sweep-ms:30000}")
     public void expire() {
-        for (var r : repo.findTop100ByStateAndExpiresAtBefore(StockReservation.State.HELD, Instant.now())) {
+        for (var r : repo.expirable(StockReservation.State.HELD, Instant.now(), org.springframework.data.domain.PageRequest.of(0,100))) {
             try { service.release(r.getOrderId(), true); }
             catch (RuntimeException e) { org.slf4j.LoggerFactory.getLogger(getClass()).error("Reservation expiry failed: {}", r.getOrderId(), e); }
         }

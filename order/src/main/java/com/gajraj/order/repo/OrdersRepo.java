@@ -10,6 +10,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface OrdersRepo extends JpaRepository<Orders, UUID>, JpaSpecificationExecutor<Orders> {
+    @org.springframework.data.jpa.repository.Query(value="select 1 from pg_advisory_xact_lock(hashtext(:series))",nativeQuery=true)
+    int lockNumberSeries(@org.springframework.data.repository.query.Param("series") String series);
+    @org.springframework.data.jpa.repository.Query(value="select coalesce(max(cast(split_part(order_number, '-', 3) as bigint)),0)+1 from orders where order_number ~ :pattern",nativeQuery=true)
+    long nextNumber(@org.springframework.data.repository.query.Param("pattern") String pattern);
+    java.util.List<Orders> findByOrderNumberStartingWithOrderByOrderDateAsc(String prefix);
     org.springframework.data.domain.Page<Orders> findByOrderDateGreaterThanEqualAndOrderDateLessThanOrderByOrderDateDesc(java.time.LocalDateTime start, java.time.LocalDateTime end, org.springframework.data.domain.Pageable pageable);
 
     java.util.List<Orders> findTop100ByIntegrationPendingTrueOrderByUpdatedAtAsc();

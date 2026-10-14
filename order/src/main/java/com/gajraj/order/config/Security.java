@@ -42,6 +42,8 @@ public class Security {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         httpSecurity.authorizeHttpRequests(registry -> registry
+                .requestMatchers("/manager/reservations/**").hasAnyRole("MANAGER", "OWNER")
+                .requestMatchers("/reservations/**").hasAnyRole("CUSTOMER", "MANAGER", "OWNER")
                 .requestMatchers("/orders/create", "/orders/cancel/**", "/orders/my-orders").authenticated()
                 .requestMatchers("/orders/status/**", "/orders/take/**", "/manager/orders/**").hasAnyRole("MANAGER", "OWNER", "ADMIN")
                 .requestMatchers("/orders/**").permitAll()

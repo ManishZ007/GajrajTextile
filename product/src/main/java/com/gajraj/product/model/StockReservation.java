@@ -13,6 +13,7 @@ public class StockReservation {
     @Id private UUID orderId;
     @Enumerated(EnumType.STRING) private State state;
     private Instant expiresAt;
+    private Boolean reviewPending = false;
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "stock_reservation_items", joinColumns = @JoinColumn(name = "order_id"))
     @MapKeyColumn(name = "variant_id") @Column(name = "quantity")

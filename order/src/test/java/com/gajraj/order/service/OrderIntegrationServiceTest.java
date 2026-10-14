@@ -35,4 +35,11 @@ class OrderIntegrationServiceTest {
         service.sync(o.getId());
         verify(payment).sync(anyString(),anyString(),argThat(m->"PAID".equals(m.get("status"))));
     }
+    @Test void fullyPaidBankReservationSyncsExactAmountBeforeFulfillment() {
+        var o=order();o.setPaymentMethod("BANK_TRANSFER");doReturn(ResponseEntity.ok().build()).when(manager).createOrderFlow(any());
+        service.sync(o.getId());service.sync(o.getId());
+        var sequence=inOrder(payment,manager);
+        sequence.verify(payment).syncBank(eq(o.getId().toString()),eq("token"),argThat(m->new BigDecimal("100.50").equals(m.get("amount"))));
+        sequence.verify(manager).createOrderFlow(any());verify(payment,never()).sync(any(),any(),any());
+    }
 }
