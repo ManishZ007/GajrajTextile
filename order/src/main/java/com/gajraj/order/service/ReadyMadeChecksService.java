@@ -21,6 +21,7 @@ public class ReadyMadeChecksService {
             && order.getItems().stream().allMatch(i -> "READY_MADE".equals(i.getOrderType()));
     }
     public static void guardStatusChange(Orders order, Orders.OrderStatus target) {
+        if(order.getRemakeStatus()!=null && target==Orders.OrderStatus.DELIVERED) guardShipping(order);
         if (!isReadyMade(order) || target == order.getOrderStatus()) return;
         if (target == Orders.OrderStatus.ON_HOLD || order.getOrderStatus() == Orders.OrderStatus.ON_HOLD)
             throw new IllegalStateException("Use the hold or release action with a reason");
@@ -29,6 +30,10 @@ public class ReadyMadeChecksService {
             throw new IllegalStateException("Pass the ready-made quality check first");
     }
     public static void guardShipping(Orders order) {
+        if(order.getRemakeStatus()!=null) {
+            if(!"COMPLETED".equals(order.getRemakeStatus())) throw new IllegalStateException("Complete the assigned worker's production before dispatch");
+            if(order.getReservationPaid()==null || order.getReservationPaid().compareTo(order.getTotalAmount())<0) throw new IllegalStateException("Full verified payment is required before dispatch");
+        }
         if (order.getOrderStatus() == Orders.OrderStatus.ON_HOLD)
             throw new IllegalStateException("Release the order hold before shipping");
         // Existing shipments may retry their begin callback without a new inspection.
@@ -78,6 +83,7 @@ public class ReadyMadeChecksService {
         if (note.length() > 1000 || (!action.equals("APPROVE") && note.isEmpty()))
             throw new IllegalArgumentException("Enter a reason of 1 to 1000 characters");
         var order = orders.findForUpdate(id).orElseThrow(() -> new IllegalArgumentException("Order not found"));
+        if(order.getRemakeStatus()!=null && Set.of("APPROVE","REJECT").contains(action) && !"COMPLETED".equals(order.getRemakeStatus())) throw new IllegalStateException("Complete worker production before quality checking");
         if (!isReadyMade(order)) throw new IllegalArgumentException("These checks are for ready-made customer orders only");
         if (Boolean.TRUE.equals(order.getShipmentStarted())) throw new IllegalStateException("Shipment has already started");
         var status = order.getOrderStatus();

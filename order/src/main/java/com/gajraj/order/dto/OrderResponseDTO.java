@@ -24,6 +24,8 @@ public class OrderResponseDTO {
     private Boolean integrationPending;
     private Boolean shipmentStarted;
     private String readyMadeQuality;
+    private String remakeStatus;
+    private BigDecimal reservationPaid;
     private String holdReason;
     private BigDecimal totalAmount;
 

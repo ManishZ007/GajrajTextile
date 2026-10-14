@@ -1590,13 +1590,18 @@ export default function PaymentPage() {
           </div>
 
           {/* CTA */}
-          {method === 'RESERVE' && <fieldset className="mb-5 border border-black/15 p-4 text-sm">
-            <legend className="px-2">Choose your initial deposit</legend>
-            {[40, 50].map(percent => <label key={percent} className="mr-6 inline-flex items-center gap-2">
-              <input type="radio" name="deposit" checked={depositPercent === percent} disabled={isProcessing}
-                onChange={() => setDepositPercent(percent)} />{percent}%
-            </label>)}
-            <p className="mt-3 text-black/60">Your manager will share a payment QR through WhatsApp after confirmation. Submit proof within the 24-hour hold; stock stays held during review. Full payment is required before dispatch.</p>
+          {method === 'RESERVE' && <fieldset className="mb-6 border-t border-black/8 pt-5">
+            <legend className="text-[0.7rem] tracking-[1.5px] uppercase text-[#1B1B1B]/75 mb-3 float-left w-full">Initial deposit</legend>
+            <div className="flex gap-2 clear-both" role="radiogroup">
+              {[40, 50].map(percent => (
+                <button key={percent} type="button" role="radio" aria-checked={depositPercent === percent} disabled={isProcessing}
+                  onClick={() => setDepositPercent(percent)}
+                  className={`flex-1 rounded-full border px-4 py-2.5 text-[12px] transition-colors disabled:opacity-40 cursor-pointer ${depositPercent === percent ? 'bg-black text-white border-black' : 'border-black/15 text-[#1B1B1B]/60 hover:border-black/40'}`}>
+                  {percent}% · {formatINR(Math.round((cart?.estimatedTotal ?? 0) * percent / 100))}
+                </button>
+              ))}
+            </div>
+            <p className="mt-4 text-[12px] font-light text-[#1B1B1B]/50 leading-[1.75]">Your manager will share a payment QR through WhatsApp after confirmation. Submit proof within the 24-hour hold; stock stays held during review. Full payment is required before dispatch.</p>
           </fieldset>}
           <button
             onClick={handlePlaceOrder}

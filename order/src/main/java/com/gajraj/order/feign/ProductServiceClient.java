@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 @FeignClient(name = "PRODUCT", configuration = ProductStockCredentials.class)
 public interface ProductServiceClient {
+    @org.springframework.web.bind.annotation.GetMapping("/product/internal/reservations/remake-quote/{variantId}")
+    java.util.Map<String,Object> remakeQuote(@PathVariable String variantId,@org.springframework.web.bind.annotation.RequestHeader("X-Service-Token") String token);
     @org.springframework.web.bind.annotation.PostMapping("/product/internal/reservations/{id}/customer-hold")
     java.util.Map<String,Object> customerHold(@PathVariable java.util.UUID id,
             @org.springframework.web.bind.annotation.RequestHeader("X-Service-Token") String token,

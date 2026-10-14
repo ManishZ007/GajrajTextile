@@ -11,5 +11,7 @@ public interface CustomerReservationRepo extends JpaRepository<CustomerReservati
     @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select r from CustomerReservation r where r.id=:id")
     Optional<CustomerReservation> lock(@Param("id") UUID id);
     Page<CustomerReservation> findByUserIdOrderByCreatedAtDesc(String userId, Pageable page);
+    Page<CustomerReservation> findByType(String type,Pageable page);
+    Page<CustomerReservation> findByUserIdAndType(String userId,String type,Pageable page);
     List<CustomerReservation> findTop100ByStatusAndHoldExpiresAtBefore(String status, Instant time);
 }

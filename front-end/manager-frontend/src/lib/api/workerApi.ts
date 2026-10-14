@@ -83,7 +83,7 @@ export interface WorkerDetail {
     } | null;
     assignments: {
       id: string;
-      orderId: number;
+      orderId: number | string;
       assignedBy: string;
       assignedDate: string;
       status: string;

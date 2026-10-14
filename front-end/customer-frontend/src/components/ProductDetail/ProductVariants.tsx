@@ -58,7 +58,7 @@ export function ProductVariants({ variants, onVariantChange }: ProductVariantsPr
           return (
             <motion.button
               key={size}
-              onClick={() => inStock && setSelectedSize(size)}
+              onClick={() => setSelectedSize(size)}
               whileTap={inStock ? { scale: 0.95 } : {}}
               className="px-4 py-2 rounded-full text-[12.5px] font-medium"
               style={{
@@ -67,7 +67,7 @@ export function ProductVariants({ variants, onVariantChange }: ProductVariantsPr
                 border: isSelected ? '1.5px solid #1B1B1B' : '1.5px solid rgba(0,0,0,0.12)',
                 textDecoration: !inStock ? 'line-through' : 'none',
                 opacity: !inStock ? 0.45 : 1,
-                cursor: !inStock ? 'not-allowed' : 'pointer',
+                cursor: 'pointer',
                 transition: 'background 0.15s, color 0.15s, border-color 0.15s',
               }}
             >

@@ -533,7 +533,12 @@ export const ProfileOverlay = ({
                       </p>
                       <div className="border-t border-black/8" />
                       {renderOrders(true)}
-                      <button className="text-left text-sm underline" onClick={() => handleNavigate('/reservations')}>My in-stock reservations</button>
+                      <button
+                        onClick={() => handleNavigate('/reservations')}
+                        className="w-full py-3.5 text-[0.7rem] tracking-[2px] uppercase text-[#1B1B1B] border border-black rounded-full transition-opacity duration-200 hover:opacity-60 cursor-pointer"
+                      >
+                        My Reservations
+                      </button>
                     </div>
 
                     {/* My Wishlist */}

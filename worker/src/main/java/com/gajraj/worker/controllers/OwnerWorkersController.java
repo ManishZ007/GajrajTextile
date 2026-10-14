@@ -7,7 +7,8 @@ import java.util.*;
 @RequestMapping("/owner/managers")
 public class OwnerWorkersController {
     private final WorkerRepo workers;
-    public OwnerWorkersController(WorkerRepo workers) {this.workers=workers;}
+    private final com.gajraj.worker.repo.ReservationWorkRepo remakeWork;
+    public OwnerWorkersController(WorkerRepo workers,com.gajraj.worker.repo.ReservationWorkRepo remakeWork) {this.workers=workers;this.remakeWork=remakeWork;}
     @GetMapping("/{id}/workers")
     @Transactional(readOnly=true)
     public List<Map<String,Object>> activity(@PathVariable UUID id) {
@@ -26,6 +27,10 @@ public class OwnerWorkersController {
                 item.put("id",a.getId());item.put("orderId",Long.toString(a.getOrderId()));
                 item.put("status",a.getStatus());item.put("date",a.getAssignedDate());item.put("source","legacy");
                 assignments.add(item);
+            }
+            for(var work:remakeWork.findByWorkerIdOrderByAssignedAtDesc(w.getWorkerId())) if(id.toString().equals(work.getManagerId())) {
+                Map<String,Object> item=new LinkedHashMap<>();item.put("id",work.getOrderId());item.put("orderId",work.getOrderNumber());
+                item.put("status",work.getStatus());item.put("date",work.getAssignedAt());item.put("task",work.getNote());item.put("source","out-of-stock reservation");assignments.add(item);
             }
             row.put("assignments",assignments);return row;
         }).toList();

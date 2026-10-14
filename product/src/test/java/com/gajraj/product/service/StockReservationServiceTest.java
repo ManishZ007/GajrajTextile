@@ -24,6 +24,15 @@ class StockReservationServiceTest {
             return r;
         });
     }
+    @Test void remakeQuoteRequiresUnavailableSellableVariantAndNeverChangesStock() {
+        var product=new Products();product.setProductId(UUID.randomUUID());product.setName("Saree");product.setStatus("ACTIVE");
+        variant.setProduct(product);variant.setPrice(new java.math.BigDecimal("1000"));
+        when(variants.findById(variantId)).thenReturn(Optional.of(variant));
+        assertThrows(IllegalStateException.class,()->service.remakeQuote(variantId));
+        variant.setStockQuantity(0);assertEquals(0,service.remakeQuote(variantId).get("availableStock"));
+        product.setStatus("ARCHIVED");assertThrows(IllegalStateException.class,()->service.remakeQuote(variantId));
+        verifyNoInteractions(repo,history);
+    }
     @Test void retriesDoNotDeductOrExtendTwice() {
         var hold=service.reserve(orderId,Map.of(variantId,2));
         var expiry=hold.getExpiresAt();

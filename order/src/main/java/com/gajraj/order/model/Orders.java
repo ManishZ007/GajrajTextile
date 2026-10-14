@@ -58,6 +58,10 @@ public class Orders {
     private Boolean integrationPending;
     private Boolean shipmentStarted = false;
     private Boolean codCollected = false;
+    private String remakeStatus;
+    private String remakeWorkerId;
+    private String remakeWorkerName;
+    @Column(precision=12,scale=2) private BigDecimal reservationPaid;
 
     // Ready-made dispatch checks; NULL on older records means not checked yet.
     private String readyMadeQuality;

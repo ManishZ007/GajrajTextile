@@ -30,4 +30,6 @@ public class StockReservationController {
     public void cancel(@PathVariable UUID id, @RequestHeader("X-Service-Token") String supplied) { authorize(supplied); service.cancel(id); }
     @GetMapping("/quote/{variantId}")
     public Map<String,Object> quote(@PathVariable UUID variantId, @RequestHeader("X-Service-Token") String supplied) { authorize(supplied); return service.quote(variantId); }
+    @GetMapping("/remake-quote/{variantId}")
+    public Map<String,Object> remakeQuote(@PathVariable UUID variantId,@RequestHeader("X-Service-Token") String supplied) { authorize(supplied);return service.remakeQuote(variantId); }
 }

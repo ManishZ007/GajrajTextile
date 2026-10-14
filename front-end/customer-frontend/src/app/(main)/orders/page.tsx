@@ -339,7 +339,10 @@ export default function OrdersPage() {
         >
           My Orders
         </h1>
-        <a className="mt-4 inline-block text-sm underline" href="/reservations">My in-stock reservations</a>
+        <div className="flex flex-wrap gap-x-6 gap-y-2 mt-5">
+          <a className="text-[0.65rem] tracking-[1.5px] uppercase text-[#1B1B1B]/55 border-b border-[#1B1B1B]/20 pb-px hover:text-[#1B1B1B] hover:border-[#1B1B1B]/55 transition-colors duration-200" href="/reservations">In-stock reservations</a>
+          <a className="text-[0.65rem] tracking-[1.5px] uppercase text-[#1B1B1B]/55 border-b border-[#1B1B1B]/20 pb-px hover:text-[#1B1B1B] hover:border-[#1B1B1B]/55 transition-colors duration-200" href="/reservations/out-of-stock">Made-for-you reservations</a>
+        </div>
         {!loading && totalElements > 0 && (
           <p className="mt-4 text-[13px] text-[#1B1B1B]/75 font-light">
             {totalElements} order{totalElements !== 1 ? 's' : ''} placed

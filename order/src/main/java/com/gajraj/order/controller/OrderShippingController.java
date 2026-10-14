@@ -46,6 +46,7 @@ public class OrderShippingController {
         if (order.getOrderStatus() == Orders.OrderStatus.CANCELLED || order.getOrderStatus() == Orders.OrderStatus.PENDING)
             throw new IllegalStateException("Order cannot receive shipment progress");
         boolean delivered = "DELIVERED".equals(progress.status());
+        if(order.getRemakeStatus()!=null) com.gajraj.order.service.ReadyMadeChecksService.guardShipping(order);
         boolean shipped = Set.of("PICKED_UP", "IN_TRANSIT", "ARRIVED_AT_HUB", "OUT_FOR_DELIVERY", "DELIVERED").contains(progress.status());
         for (var item : order.getItems()) {
             item.setTrackingNumber(progress.trackingNumber()); item.setCourierService(progress.courier()); item.setEstimatedDelivery(progress.estimatedDelivery());

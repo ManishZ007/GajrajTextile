@@ -23,7 +23,7 @@ public class OrderIntegrationService {
         Orders order = orders.findForUpdate(id).orElseThrow();
         if (!Boolean.TRUE.equals(order.getIntegrationPending())) return;
         boolean cancelled = order.getOrderStatus() == Orders.OrderStatus.CANCELLED;
-        if ("BANK_TRANSFER".equals(order.getPaymentMethod()) && !cancelled) {
+        if ("BANK_TRANSFER".equals(order.getPaymentMethod()) && !cancelled && (order.getRemakeStatus()==null || (order.getReservationPaid()!=null && order.getReservationPaid().compareTo(order.getTotalAmount())>=0))) {
             payments.syncBank(id.toString(), token, Map.of("amount", order.getTotalAmount(), "userId", order.getUserId()));
         }
         if ("COD".equalsIgnoreCase(order.getPaymentMethod())) {

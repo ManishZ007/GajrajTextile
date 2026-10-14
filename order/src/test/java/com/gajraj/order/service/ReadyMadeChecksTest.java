@@ -23,6 +23,18 @@ class ReadyMadeChecksTest {
         when(orders.findForUpdate(id)).thenReturn(Optional.of(order));
         when(orders.save(order)).thenReturn(order);
     }
+    @Test void remakeDispatchRequiresProductionQualityAndFullPayment() {
+        order.setRemakeStatus("IN_PROGRESS");order.setReservationPaid(BigDecimal.TEN);
+        assertThrows(IllegalStateException.class,()->checks.act(id,"APPROVE","","manager"));
+        order.setRemakeStatus("COMPLETED");
+        assertThrows(IllegalStateException.class,()->ReadyMadeChecksService.guardShipping(order));
+        checks.act(id,"APPROVE","Checked remake","manager");
+        order.setReservationPaid(new BigDecimal("4"));
+        assertThrows(IllegalStateException.class,()->ReadyMadeChecksService.guardShipping(order));
+        assertThrows(IllegalStateException.class,()->ReadyMadeChecksService.guardStatusChange(order,Orders.OrderStatus.DELIVERED));
+        order.setReservationPaid(BigDecimal.TEN);
+        assertDoesNotThrow(()->ReadyMadeChecksService.guardShipping(order));
+    }
     @Test void holdReleasePreservesInventoryAndRequiresReinspection() {
         order.setStockDeducted(true); order.setReadyMadeQuality("APPROVED");
         checks.act(id, "HOLD", "Wrong variant", "manager-one");

@@ -133,6 +133,8 @@ interface OrderDetail {
   addressId?: string | number;
   paymentStatus?: string;
   readyMadeQuality?: string;
+  remakeStatus?: string;
+  reservationPaid?: number;
   shipmentStarted?: boolean;
 }
 
@@ -669,7 +671,9 @@ function RightPanel({
   firstDelivery: string | null;
 }) {
   const readyMade = !!order.items?.length && order.items.every(item => item.orderType === 'READY_MADE');
-  const guide = readyMade && status === 'IN_PROGRESS'
+  const guide = order.remakeStatus && !['DELIVERED', 'CANCELLED', 'ON_HOLD'].includes(status)
+    ? { heading: 'Made for you', body: `Production: ${order.remakeStatus.replaceAll('_', ' ')}. Quality: ${order.readyMadeQuality ?? 'PENDING'}. Verified payment: ₹${order.reservationPaid ?? 0} of ₹${order.totalAmount}. Dispatch follows completed production, approved quality and full payment.` }
+    : readyMade && status === 'IN_PROGRESS'
     ? { heading: 'Preparing your order', body: order.readyMadeQuality === 'REJECTED' ? 'Our team is resolving a quality issue before dispatch.' : 'Your ready-made order is awaiting its quality inspection before dispatch.' }
     : readyMade && status === 'COMPLETED'
       ? { heading: 'Ready to ship', body: 'Your order has passed its quality check. Follow shipment tracking for courier pickup and delivery updates.' }
@@ -963,7 +967,9 @@ export default function OrderDetailPage() {
   const rawOrderStatus = normalizeOrderStatus(order.orderStatus ?? order.status);
   const items = order.items ?? [];
   const readyMade = items.length > 0 && items.every(item => item.orderType === 'READY_MADE');
-  const orderStatus = readyMade ? readyMadeDisplayStatus(rawOrderStatus, order.readyMadeQuality) : rawOrderStatus;
+  const orderStatus = order.remakeStatus && ['CONFIRMED','IN_PROGRESS','COMPLETED'].includes(rawOrderStatus)
+    ? order.remakeStatus === 'COMPLETED' && order.readyMadeQuality === 'APPROVED' && Number(order.reservationPaid) >= Number(order.totalAmount) ? 'COMPLETED' : 'IN_PROGRESS'
+    : readyMade ? readyMadeDisplayStatus(rawOrderStatus, order.readyMadeQuality) : rawOrderStatus;
   const isCustomized = items.some((i) => i.orderType === 'CUSTOM');
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
   const firstTracking = items.find((i) => i.trackingNumber)?.trackingNumber ?? null;
@@ -1020,7 +1026,32 @@ export default function OrderDetailPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <OrderProgress status={orderStatus} readyMade={readyMade} />
+            {order.remakeStatus ? (
+              <div className="flex flex-col gap-5">
+                <p className="text-[0.725rem] tracking-[1.5px] uppercase text-[#1B1B1B]/75">Made for you</p>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+                  <MetaPair label="Production" value={order.remakeStatus.replaceAll('_', ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase())} />
+                  <MetaPair label="Quality" value={order.readyMadeQuality ?? 'Pending'} />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="h-px w-full bg-black/10 relative">
+                    <div
+                      className="absolute left-0 top-[-1px] h-[3px] bg-[#1B1B1B] transition-all duration-500"
+                      style={{ width: `${order.totalAmount > 0 ? Math.min(100, ((order.reservationPaid ?? 0) / order.totalAmount) * 100) : 0}%` }}
+                    />
+                  </div>
+                  <p className="text-[12px] font-light text-[#1B1B1B]/60">
+                    {formatINR(order.reservationPaid ?? 0)} verified of {formatINR(order.totalAmount)}
+                  </p>
+                </div>
+                <a
+                  href="/reservations/out-of-stock"
+                  className="w-fit text-[0.725rem] tracking-[1.5px] uppercase text-[#1B1B1B] border-b border-[#1B1B1B]/30 pb-px hover:border-[#1B1B1B] transition-colors duration-200"
+                >
+                  Reservation &amp; payment history
+                </a>
+              </div>
+            ) : <OrderProgress status={orderStatus} readyMade={readyMade} />}
           </motion.div>
 
           {/* Production timeline */}
@@ -1029,7 +1060,7 @@ export default function OrderDetailPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
           >
-            <ProductionTimeline flow={readyMade ? null : orderFlow} orderStatus={rawOrderStatus} readyMade={readyMade} quality={order.readyMadeQuality} />
+            {!order.remakeStatus && <ProductionTimeline flow={readyMade ? null : orderFlow} orderStatus={rawOrderStatus} readyMade={readyMade} quality={order.readyMadeQuality} />}
           </motion.div>
 
           {/* ── Items ────────────────────────────────────────────────────── */}

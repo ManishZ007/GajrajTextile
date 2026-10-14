@@ -324,9 +324,12 @@ export default function OrdersAll() {
   return (
     <div className="flex flex-col gap-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-semibold text-gray-800">{title}</h1>
-        <a href="/orders/reservations" className="mt-3 inline-block text-sm underline">In-stock reservations</a>
+        <div className="flex items-center gap-2">
+          <a href="/orders/reservations" className="px-4 py-2 border border-gray-200 bg-white/60 text-sm font-medium text-gray-600 rounded-xl hover:bg-white transition-colors">In-stock reservations</a>
+          <a href="/orders/out-of-stock-reservations" className="px-4 py-2 border border-gray-200 bg-white/60 text-sm font-medium text-gray-600 rounded-xl hover:bg-white transition-colors">Out-of-stock reservations</a>
+        </div>
       </div>
 
       {/* Stat pills — horizontal scroll */}

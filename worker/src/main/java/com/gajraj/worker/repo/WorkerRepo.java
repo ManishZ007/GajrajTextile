@@ -16,6 +16,7 @@ import java.util.UUID;
 
 @Repository
 public interface  WorkerRepo extends JpaRepository<Workers, UUID> {
+    Page<Workers> findByVerificationNewStatus(com.gajraj.worker.model.WorkerVerification.VerificationStatus status, Pageable page);
 
     @Query("""
         SELECT w FROM Workers w WHERE w.userId = :userId
@@ -56,6 +57,6 @@ public interface  WorkerRepo extends JpaRepository<Workers, UUID> {
 
 
 
-    @Query("select distinct w from Workers w left join w.verification v left join w.assignments a where w.createdByManagerId = :manager or (w.createdByManagerId is null and v.reason = 'Initial registration' and v.changeBy = :manager) or a.assignedBy = :managerUuid")
+    @Query("select distinct w from Workers w left join w.verification v left join w.assignments a where w.createdByManagerId = :manager or (w.createdByManagerId is null and v.reason = 'Initial registration' and v.changeBy = :manager) or a.assignedBy = :managerUuid or exists (select r.orderId from ReservationWork r where r.workerId=w.workerId and r.managerId=:manager)")
     java.util.List<Workers> ownerActivity(@Param("manager") String manager, @Param("managerUuid") UUID managerUuid);
 }

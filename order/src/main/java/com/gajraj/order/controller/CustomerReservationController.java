@@ -6,7 +6,7 @@ import org.springframework.http.*;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.*;
 
-@RestController @RequestMapping({"/reservations/in-stock","/manager/reservations/in-stock"})
+@RestController @RequestMapping({"/reservations/in-stock","/manager/reservations/in-stock","/reservations/out-of-stock","/manager/reservations/out-of-stock"})
 public class CustomerReservationController {
     private final CustomerReservationService service;
     public CustomerReservationController(CustomerReservationService service) { this.service=service; }
@@ -17,10 +17,11 @@ public class CustomerReservationController {
     private void customer(Authentication a) {
         if(a==null || a.getAuthorities().stream().noneMatch(x->x.getAuthority().equals("ROLE_CUSTOMER"))) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
     }
-    @GetMapping public Object list(Authentication a,@RequestParam(defaultValue="0") int page) { return service.list(a.getName(),staff(a),page); }
+    private String type(jakarta.servlet.http.HttpServletRequest request) { return request.getRequestURI().contains("/out-of-stock") ? "OUT_OF_STOCK" : "IN_STOCK"; }
+    @GetMapping public Object list(Authentication a,@RequestParam(defaultValue="0") int page,jakarta.servlet.http.HttpServletRequest request) { return service.list(a.getName(),staff(a),page,type(request)); }
     @GetMapping("/{id}") public Object get(@PathVariable UUID id,Authentication a) { return service.get(id,a.getName(),staff(a)); }
-    @PostMapping public Object request(@RequestBody CustomerReservationService.Request body,Authentication a,@RequestHeader("Authorization") String authorization) {
-        customer(a); return service.request(body,a.getName(),authorization);
+    @PostMapping public Object request(@RequestBody CustomerReservationService.Request body,Authentication a,@RequestHeader("Authorization") String authorization,jakarta.servlet.http.HttpServletRequest request) {
+        customer(a); return service.request(body,a.getName(),authorization,type(request));
     }
     @PostMapping("/{id}/confirm") public Object confirm(@PathVariable UUID id,Authentication a) { manager(a); return service.confirm(id,a.getName()); }
     @PostMapping("/{id}/cancel") public Object cancel(@PathVariable UUID id,Authentication a,@RequestBody Map<String,String> body) { return service.cancel(id,a.getName(),staff(a),body.get("reason")); }

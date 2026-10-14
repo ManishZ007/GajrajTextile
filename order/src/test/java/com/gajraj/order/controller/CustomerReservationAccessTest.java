@@ -34,7 +34,7 @@ class CustomerReservationAccessTest {
         token("CUSTOMER");token("WORKER");
         mvc.perform(get("/reservations/in-stock").header("Authorization","Bearer WORKER")).andExpect(status().isForbidden());
         mvc.perform(get("/manager/reservations/in-stock").header("Authorization","Bearer CUSTOMER")).andExpect(status().isForbidden());
-        for(String prefix:new String[]{"/reservations/in-stock/","/manager/reservations/in-stock/"}) {
+        for(String prefix:new String[]{"/reservations/in-stock/","/manager/reservations/in-stock/","/reservations/out-of-stock/","/manager/reservations/out-of-stock/"}) {
             mvc.perform(post(prefix+id+"/received-payments").header("Authorization","Bearer CUSTOMER").contentType("application/json").content("{}"))
                 .andExpect(status().isForbidden());
             mvc.perform(post(prefix+id+"/confirm").header("Authorization","Bearer CUSTOMER").contentType("application/json").content("{}"))

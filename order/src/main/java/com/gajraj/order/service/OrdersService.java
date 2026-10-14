@@ -455,6 +455,8 @@ public class OrdersService {
         dto.setIntegrationPending(order.getIntegrationPending());
         dto.setShipmentStarted(order.getShipmentStarted());
         dto.setReadyMadeQuality(order.getReadyMadeQuality() == null ? "PENDING" : order.getReadyMadeQuality());
+        dto.setRemakeStatus(order.getRemakeStatus());
+        dto.setReservationPaid(order.getReservationPaid());
         dto.setHoldReason(order.getHoldReason());
         dto.setTotalAmount(order.getTotalAmount());
         dto.setHandledByManagerId(order.getHandledByManagerId());

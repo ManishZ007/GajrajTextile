@@ -135,6 +135,30 @@ class CustomerReservationServiceTest {
         assertEquals("EXPIRED",r.getStatus());assertEquals(BigDecimal.ZERO,r.getPaid());
         service.syncStock(id);verify(product).review(id,"token",false);verify(product).release(id,"token");
     }
+    @Test void remakeDepositCreatesOneProductionOrderWithoutTouchingInventory() {
+        r.setType("OUT_OF_STOCK");
+        service.confirm(id,"manager");
+        assertEquals("AWAITING_DEPOSIT",r.getStatus());
+        UUID orderId=UUID.randomUUID();
+        when(orders.saveAndFlush(any())).thenAnswer(c->{
+            Orders o=c.getArgument(0);o.setId(orderId);
+            when(orders.findForUpdate(orderId)).thenReturn(Optional.of(o));
+            when(orders.findById(orderId)).thenReturn(Optional.of(o));return o;
+        });
+        service.recordReceived(id,"manager",receipt("400.20"));service.syncStock(id);service.syncStock(id);
+        var order=orders.findById(orderId).orElseThrow();
+        assertEquals("AWAITING_ASSIGNMENT",order.getRemakeStatus());
+        assertTrue(order.getOrderNumber().startsWith("ORES-"));
+        assertEquals(new BigDecimal("400.20"),order.getReservationPaid());
+        service.recordReceived(id,"manager",receipt("600.30"));service.syncStock(id);
+        assertEquals(new BigDecimal("1000.50"),order.getReservationPaid());
+        assertEquals("FULLY_PAID",r.getStatus());
+        verify(orders,times(1)).saveAndFlush(any());verifyNoInteractions(product);
+    }
+    @Test void expiredRemakeDoesNotReleaseNonexistentStock() {
+        r.setType("OUT_OF_STOCK");r.setStatus("AWAITING_DEPOSIT");r.setHoldExpiresAt(Instant.now().minusSeconds(1));
+        service.expire(id);assertEquals("EXPIRED",r.getStatus());verifyNoInteractions(product);
+    }
     @Test void authoritativeQuoteAndOwnedAddressAreUsed() {
         UUID newId=UUID.randomUUID();
         when(customers.profile("Bearer customer")).thenReturn(Map.of("authentication",Map.of("auth",Map.of("userId","customer","fullName","Customer","email","c@example.com","phoneNumber","123")),

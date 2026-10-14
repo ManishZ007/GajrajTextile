@@ -31,7 +31,7 @@ public class JWTAuthenticationFilter extends org.springframework.web.filter.Once
 
         String path = request.getRequestURI();
 
-        if(path.contains("/internal") || (path.contains("/manger-worker") && !path.contains("/verify/")) || path.contains("/getWorker")) {
+        if(path.startsWith("/internal/")) {
             filterChain.doFilter(request, response);
             return;
         }

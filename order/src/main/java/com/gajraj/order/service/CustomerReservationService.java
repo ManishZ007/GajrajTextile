@@ -41,7 +41,7 @@ public class CustomerReservationService {
     public record Review(boolean approved,BigDecimal amount,String note) {}
     public record ReceivedPayment(UUID submissionId,BigDecimal amount,String reference,Instant receivedAt,String note) {}
     public record Detail(CustomerReservation reservation,List<ReservationPayment> payments,BigDecimal depositRequired,
-                         BigDecimal remaining,boolean bankConfigured) {}
+                         BigDecimal remaining,boolean bankConfigured,Map<String,Object> production) {}
     static BigDecimal money(BigDecimal amount) {
         if(amount==null || amount.signum()<=0 || amount.scale()>2 || amount.compareTo(new BigDecimal("99999999.99"))>0)
             throw bad("Enter a positive amount with no more than two decimal places");
@@ -56,12 +56,21 @@ public class CustomerReservationService {
         if(!staff && !r.getUserId().equals(user)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
     }
     private Detail detail(CustomerReservation r) {
-        return new Detail(r,payments.findByReservationIdOrderBySubmittedAtAsc(r.getId()),deposit(r),r.getTotal().subtract(r.getPaid()),!bankInstructions.isBlank());
+        var production=new HashMap<String,Object>();
+        if("OUT_OF_STOCK".equals(r.getType()) && r.getOrderId()!=null) orders.findById(r.getOrderId()).ifPresent(o->{
+            production.put("status",o.getRemakeStatus());production.put("workerName",o.getRemakeWorkerName());
+            production.put("quality",o.getReadyMadeQuality());production.put("orderNumber",o.getOrderNumber());production.put("shipped",o.getShipmentStarted());
+        });
+        return new Detail(r,payments.findByReservationIdOrderBySubmittedAtAsc(r.getId()),deposit(r),r.getTotal().subtract(r.getPaid()),!bankInstructions.isBlank(),production);
     }
     @Transactional(readOnly=true)
     public Page<CustomerReservation> list(String user,boolean staff,int page) {
+        return list(user,staff,page,"IN_STOCK");
+    }
+    @Transactional(readOnly=true)
+    public Page<CustomerReservation> list(String user,boolean staff,int page,String type) {
         var p=PageRequest.of(Math.max(page,0),20,Sort.by(Sort.Direction.DESC,"createdAt"));
-        return staff ? reservations.findAll(p) : reservations.findByUserIdOrderByCreatedAtDesc(user,p);
+        return staff ? reservations.findByType(type,p) : reservations.findByUserIdAndType(user,type,p);
     }
     @Transactional(readOnly=true)
     public Detail get(UUID id,String user,boolean staff) {
@@ -70,10 +79,15 @@ public class CustomerReservationService {
     @SuppressWarnings("unchecked")
     @Transactional
     public Detail request(Request request,String user,String authorization) {
+        return request(request,user,authorization,"IN_STOCK");
+    }
+    @SuppressWarnings("unchecked") @Transactional
+    public Detail request(Request request,String user,String authorization,String type) {
         if(request.requestId()==null || !Set.of(40,50).contains(request.depositPercent()) || request.items()==null
-                || request.items().isEmpty() || request.items().size()>30) throw bad("Select 40% or 50% and 1 to 30 in-stock items");
+                || request.items().isEmpty() || request.items().size()>30) throw bad("Select 40% or 50% and 1 to 30 items");
+        if(!Set.of("IN_STOCK","OUT_OF_STOCK").contains(type)) throw bad("Invalid reservation type");
         var existing=reservations.findById(request.requestId());
-        if(existing.isPresent()) { owner(existing.get(),user,false); return detail(existing.get()); }
+        if(existing.isPresent()) { owner(existing.get(),user,false); if(!type.equals(existing.get().getType())) throw bad("Request ID belongs to another reservation type"); return detail(existing.get()); }
         var profile=customers.profile(authorization);
         var auth=(Map<String,Object>) ((Map<String,Object>)profile.get("authentication")).get("auth");
         var customer=(Map<String,Object>) profile.get("customer");
@@ -82,15 +96,16 @@ public class CustomerReservationService {
         var address=addresses.stream().filter(a->String.valueOf(a.get("id")).equals(request.addressId())).findFirst()
                 .orElseThrow(()->bad("Select one of your delivery addresses"));
         var r=new CustomerReservation(); r.setId(request.requestId()); r.setUserId(user); r.setAddressId(request.addressId());
+        r.setType(type);
         r.setCustomerName(String.valueOf(auth.get("fullName"))); r.setEmail(String.valueOf(auth.get("email"))); r.setPhone(String.valueOf(auth.get("phoneNumber")));
         r.setAddress(String.join(", ",List.of("street","city","state","postalCode","country").stream().map(k->String.valueOf(address.get(k))).toList()));
         r.setDepositPercent(request.depositPercent()); BigDecimal total=BigDecimal.ZERO; Set<String> seen=new HashSet<>();
         for(var input:request.items()) {
             if(input.quantity()<1 || input.quantity()>100 || input.variantId()==null || !seen.add(input.variantId())) throw bad("Invalid or duplicate variant");
             UUID.fromString(input.variantId());
-            var quote=product.quote(input.variantId(),token);
+            var quote="OUT_OF_STOCK".equals(type) ? product.remakeQuote(input.variantId(),token) : product.quote(input.variantId(),token);
             if(!Objects.equals(input.productId(),String.valueOf(quote.get("productId")))) throw bad("Product and variant do not match");
-            if(Integer.parseInt(quote.get("availableStock").toString())<input.quantity()) throw bad("An item is out of stock; this flow is for in-stock reservations only");
+            if(!"OUT_OF_STOCK".equals(type) && Integer.parseInt(quote.get("availableStock").toString())<input.quantity()) throw bad("An item is out of stock; this flow is for in-stock reservations only");
             var item=new CustomerReservation.Item(); item.setProductId(input.productId()); item.setVariantId(input.variantId());
             item.setQuantity(input.quantity()); item.setUnitPrice(money(new BigDecimal(quote.get("price").toString())));
             item.setName(String.valueOf(quote.get("name"))); item.setVariantLabel(String.valueOf(quote.get("variantLabel")));
@@ -103,8 +118,9 @@ public class CustomerReservationService {
         var r=locked(id);
         if(!"REQUESTED".equals(r.getStatus())) return detail(r);
         var quantities=new TreeMap<UUID,Integer>(); r.getItems().forEach(i->quantities.put(UUID.fromString(i.getVariantId()),i.getQuantity()));
-        var hold=product.customerHold(id,token,quantities);
-        r.setHoldExpiresAt(Instant.parse(hold.get("expiresAt").toString())); r.setStatus("AWAITING_DEPOSIT");
+        if("OUT_OF_STOCK".equals(r.getType())) r.setHoldExpiresAt(Instant.now().plusSeconds(86400));
+        else { var hold=product.customerHold(id,token,quantities);r.setHoldExpiresAt(Instant.parse(hold.get("expiresAt").toString())); }
+        r.setStatus("AWAITING_DEPOSIT");
         r.setManagerId(manager); r.setBankInstructions(bankInstructions); reservations.save(r); return detail(r);
     }
     @Transactional
@@ -115,7 +131,7 @@ public class CustomerReservationService {
             throw bad("Verified payments or unreviewed proof exist. Resolve payment/refund with the customer before cancellation");
         if(!Set.of("REQUESTED","AWAITING_DEPOSIT","EXPIRED").contains(r.getStatus())) throw bad("Reservation cannot be cancelled");
         if(reason==null || reason.isBlank() || reason.length()>1000) throw bad("A cancellation reason is required (maximum 1000 characters)");
-        if(r.getHoldExpiresAt()!=null) product.cancel(id,token);
+        if(r.getHoldExpiresAt()!=null && !"OUT_OF_STOCK".equals(r.getType())) product.cancel(id,token);
         r.setStatus("CANCELLED"); r.setStockAction(null); r.setNote(reason.trim()); reservations.save(r); return detail(r);
     }
     @Transactional
@@ -142,7 +158,7 @@ public class CustomerReservationService {
         payments.saveAndFlush(p);
         if(r.getPaid().signum()==0) {
             if(!r.getHoldExpiresAt().isAfter(Instant.now())) throw bad("Stock hold expired. Resolve availability before accepting this payment.");
-            product.review(id,token,true);
+            if(!"OUT_OF_STOCK".equals(r.getType())) product.review(id,token,true);
         }
         r.setPaid(r.getPaid().add(amount));r.setStatus(r.getPaid().compareTo(r.getTotal())==0 ? "FULLY_PAID" : "RESERVED");
         r.setStockAction("COMMIT");reservations.save(r);return detail(r);
@@ -171,7 +187,8 @@ public class CustomerReservationService {
         p.setReference(reference); p.setProof(bytes); p.setProofType(mime); payments.saveAndFlush(p);
         if(r.getPaid().signum()==0) {
             if(!r.getHoldExpiresAt().isAfter(Instant.now())) throw bad("The payment window expired. Contact the manager if you already transferred money");
-            product.review(id,token,true); r.setStatus("PAYMENT_REVIEW"); r.setStockAction(null);
+            if(!"OUT_OF_STOCK".equals(r.getType())) product.review(id,token,true);
+            r.setStatus("PAYMENT_REVIEW"); r.setStockAction(null);
         }
         reservations.save(r); return detail(r);
     }
@@ -224,6 +241,7 @@ public class CustomerReservationService {
         order.setOrderNumber(OrderNumbers.next(orders,"OUT_OF_STOCK".equals(r.getType()) ? "ORES" : "RES",java.time.LocalDate.now().getYear())); order.setPaymentMethod("BANK_TRANSFER"); order.setTotalAmount(r.getTotal());
         order.setOrderStatus(Orders.OrderStatus.CONFIRMED); order.setStockDeducted(true); order.setReservationManaged(false);
         order.setHandledByManagerId(r.getManagerId()); order.setIntegrationPending(true);
+        if("OUT_OF_STOCK".equals(r.getType())) { order.setRemakeStatus("AWAITING_ASSIGNMENT");order.setReservationPaid(r.getPaid()); }
         for(var i:r.getItems()) {
             var item=new OrderItem(); item.setOrder(order); item.setProductId(i.getProductId()); item.setVariantId(i.getVariantId());
             item.setQuantity(i.getQuantity()); item.setSubtotal(i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())));
@@ -235,11 +253,17 @@ public class CustomerReservationService {
     public void syncStock(UUID id) {
         var r=locked(id);
         if("COMMIT".equals(r.getStockAction())) {
-            product.commit(id,token);
-            if(r.getPaid().compareTo(r.getTotal())==0) createFulfillment(r);
+            if("OUT_OF_STOCK".equals(r.getType())) {
+                createFulfillment(r);
+                var order=orders.findForUpdate(r.getOrderId()).orElseThrow();
+                order.setReservationPaid(r.getPaid());order.setIntegrationPending(true);orders.save(order);
+            } else {
+                product.commit(id,token);
+                if(r.getPaid().compareTo(r.getTotal())==0) createFulfillment(r);
+            }
         } else if("REVIEW_CLEAR".equals(r.getStockAction())) {
-            product.review(id,token,false);
-            if("EXPIRED".equals(r.getStatus())) product.release(id,token);
+            if(!"OUT_OF_STOCK".equals(r.getType())) { product.review(id,token,false);
+                if("EXPIRED".equals(r.getStatus())) product.release(id,token); }
         } else return;
         r.setStockAction(null); reservations.save(r);
     }
@@ -247,7 +271,8 @@ public class CustomerReservationService {
     public void expire(UUID id) {
         var r=locked(id);
         if("AWAITING_DEPOSIT".equals(r.getStatus()) && !r.getHoldExpiresAt().isAfter(Instant.now())) {
-            product.release(id,token); r.setStatus("EXPIRED"); r.setStockAction(null); reservations.save(r);
+            if(!"OUT_OF_STOCK".equals(r.getType())) product.release(id,token);
+            r.setStatus("EXPIRED"); r.setStockAction(null); reservations.save(r);
         }
     }
 }

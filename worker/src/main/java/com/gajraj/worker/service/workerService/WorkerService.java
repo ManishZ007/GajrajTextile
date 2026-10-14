@@ -26,6 +26,8 @@ public class WorkerService {
 
     @Autowired
     WorkerRepo workerRepo;
+    @Autowired
+    com.gajraj.worker.repo.ReservationWorkRepo reservationWork;
 
     @Autowired
     WorkerVerificationRepo workerVerificationRepo;
@@ -169,6 +171,13 @@ public class WorkerService {
                 assignmentsList.add(assignMap);
             }
         }
+        for(var work:reservationWork.findByWorkerIdOrderByAssignedAtDesc(worker.getWorkerId())) {
+            var entry=new LinkedHashMap<String,Object>();
+            entry.put("id",work.getOrderId());entry.put("orderId",work.getOrderNumber());
+            entry.put("assignedBy",work.getManagerId());entry.put("assignedDate",work.getAssignedAt());entry.put("status",work.getStatus());
+            entry.put("progress",Map.of("progressPercent","COMPLETED".equals(work.getStatus())?100:"IN_PROGRESS".equals(work.getStatus())?50:0,"currentStep",work.getStatus(),"updatedAt",work.getUpdatedAt()));
+            assignmentsList.add(entry);
+        }
         workerMap.put("assignments", assignmentsList);
 
         return workerMap;
@@ -178,7 +187,8 @@ public class WorkerService {
     @Transactional(readOnly = true)
     public Map<String, Object> getAllWorkers(int page, int size, String status) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Workers> workersPage = workerRepo.findAll(pageable);
+        Page<Workers> workersPage = status==null || status.isBlank() || "ALL".equalsIgnoreCase(status) ? workerRepo.findAll(pageable)
+            : workerRepo.findByVerificationNewStatus(WorkerVerification.VerificationStatus.valueOf(status.toUpperCase(Locale.ROOT)),pageable);
 
         List<Map<String, Object>> combined = workersPage.getContent().stream()
                 .map(worker -> {

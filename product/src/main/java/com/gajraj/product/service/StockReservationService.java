@@ -113,6 +113,14 @@ public class StockReservationService {
         r.setReviewPending(pending);
         reservations.save(r);
     }
+    @Transactional(readOnly=true)
+    public Map<String,Object> remakeQuote(UUID variantId) {
+        var variant=variants.findById(variantId).orElseThrow();
+        if(variant.getStockQuantity()!=0 || !Set.of("ACTIVE","OUT_OF_STOCK").contains(Objects.toString(variant.getStatus(),"")) || !Set.of("ACTIVE","OUT_OF_STOCK").contains(Objects.toString(variant.getProduct().getStatus(),"")))
+            throw new IllegalStateException("Only unavailable variants can be requested for remaking");
+        return Map.of("productId",variant.getProduct().getProductId(),"price",variant.getPrice(),
+            "name",variant.getProduct().getName(),"variantLabel",String.valueOf(variant.getSku()),"availableStock",0);
+    }
 
     @Transactional
     public void cancel(UUID orderId) {

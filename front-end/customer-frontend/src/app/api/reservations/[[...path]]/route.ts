@@ -5,7 +5,9 @@ const uuid = '[0-9a-fA-F-]{36}';
 async function proxy(request: Request, context: { params: Promise<{ path?: string[] }> }) {
   const session = await auth();
   if (!session?.accessToken || session.error) return Response.json({ error: 'Please sign in again' }, { status: 401 });
-  const path = ((await context.params).path ?? []).join('/');
+  const segments = (await context.params).path ?? [];
+  const kind = segments[0] === 'out-of-stock' ? 'out-of-stock' : 'in-stock';
+  const path = (kind === 'out-of-stock' ? segments.slice(1) : segments).join('/');
   const allowed = request.method === 'GET'
     ? new RegExp(`^(${uuid}(/payments/${uuid}/proof)?)?$`)
     : new RegExp(`^(${uuid}/(payments|cancel))?$`);
@@ -20,7 +22,7 @@ async function proxy(request: Request, context: { params: Promise<{ path?: strin
       if (body.length > 2900000) return Response.json({ error: 'Screenshot is too large' }, { status: 413 });
     }
     const page = Math.max(0, Math.min(100000, Number(new URL(request.url).searchParams.get('page')) || 0));
-    const response = await fetch(internalServiceUrl(`http://localhost:8083/reservations/in-stock${path ? '/' + path : ''}?page=${Math.floor(page)}`), {
+    const response = await fetch(internalServiceUrl(`http://localhost:8083/reservations/${kind}${path ? '/' + path : ''}?page=${Math.floor(page)}`), {
       method: request.method, body, cache: 'no-store', signal: AbortSignal.timeout(30000),
       headers: { Authorization: `Bearer ${session.accessToken}`, 'Content-Type': 'application/json' },
     });

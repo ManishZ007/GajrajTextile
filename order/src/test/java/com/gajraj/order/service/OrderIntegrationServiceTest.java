@@ -35,6 +35,13 @@ class OrderIntegrationServiceTest {
         service.sync(o.getId());
         verify(payment).sync(anyString(),anyString(),argThat(m->"PAID".equals(m.get("status"))));
     }
+    @Test void remakePartialPaymentDoesNotMarkPaymentServicePaid() {
+        var o=order();o.setPaymentMethod("BANK_TRANSFER");o.setRemakeStatus("ASSIGNED");o.setReservationPaid(new BigDecimal("40.20"));
+        doReturn(ResponseEntity.ok().build()).when(manager).createOrderFlow(any());
+        service.sync(o.getId());verifyNoInteractions(payment);verify(manager).createOrderFlow(any());
+        o.setReservationPaid(o.getTotalAmount());o.setIntegrationPending(true);service.sync(o.getId());
+        verify(payment,times(1)).syncBank(anyString(),eq("token"),any());
+    }
     @Test void fullyPaidBankReservationSyncsExactAmountBeforeFulfillment() {
         var o=order();o.setPaymentMethod("BANK_TRANSFER");doReturn(ResponseEntity.ok().build()).when(manager).createOrderFlow(any());
         service.sync(o.getId());service.sync(o.getId());

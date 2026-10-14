@@ -14,6 +14,7 @@ import { ProductInfo } from '@/components/ProductDetail/ProductInfo';
 import { ProductVariants } from '@/components/ProductDetail/ProductVariants';
 import { ProductAttributes } from '@/components/ProductDetail/ProductAttributes';
 import { ProductActions } from '@/components/ProductDetail/ProductActions';
+import RemakeRequest from '@/components/reservations/RemakeRequest';
 import { ProductCare } from '@/components/ProductDetail/ProductCare';
 import { ProductSkeleton } from '@/components/ProductDetail/ProductSkeleton';
 import { useCartStore } from '@/store/cartStore';
@@ -197,6 +198,7 @@ export default function ProductDetailPage() {
             />
 
             {/* Attributes */}
+            {selectedVariant && selectedVariant.stockQuantity === 0 && ['ACTIVE','OUT_OF_STOCK'].includes(selectedVariant.status) && <RemakeRequest key={selectedVariant.variantId} productId={product.productId} variantId={selectedVariant.variantId} />}
             {product.attributes.length > 0 && (
               <div style={DIVIDER}>
                 <ProductAttributes attributes={product.attributes} />

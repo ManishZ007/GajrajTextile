@@ -97,6 +97,7 @@ export const featureMap: Record<
   "/orders": [
     { icon: IconOrders, href: "/orders", tooltip: "All orders" },
     { icon: IconOrders, href: "/orders/reservations", tooltip: "In-stock reservations" },
+    { icon: IconOrders, href: "/orders/out-of-stock-reservations", tooltip: "Out-of-stock reservations" },
     {
       icon: IconAssignWorker,
       href: "/orders/assign",
