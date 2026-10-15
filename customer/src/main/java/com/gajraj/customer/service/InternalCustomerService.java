@@ -38,7 +38,7 @@ public class InternalCustomerService {
 
             newUserData.setUser_id(saveNewUserFromAuth.getUser_id());
 
-            Customers saveCustomer = customerRepo.save(newUserData);
+            Customers saveCustomer = customerRepo.saveAndFlush(newUserData);
 
             if (saveCustomer != null)
                 return ResponseEntity.ok(Map.of(
@@ -54,9 +54,8 @@ public class InternalCustomerService {
 
         catch (Exception e) {
             System.err.println("data base error" + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "message", "Could not create customer profile"));
         }
-
-        return ResponseEntity.ok(Map.of("success", true));
 
     }
 

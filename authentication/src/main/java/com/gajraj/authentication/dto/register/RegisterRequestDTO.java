@@ -12,6 +12,10 @@ public class RegisterRequestDTO {
     private String fullName;
     private String email;
     private String phoneNumber;
+    // Registration receives plaintext over HTTPS; AuthService hashes it before persistence.
+    // Keep the legacy property for existing manager/worker clients.
+    @com.fasterxml.jackson.annotation.JsonAlias("password")
+    @lombok.ToString.Exclude
     private String passwordHash;
     private Users.Role role;
 

@@ -84,30 +84,47 @@ public class AuthService {
         // Never log registration passwords.
         try{
             if (request == null || request.getEmail() == null || request.getPasswordHash() == null || request.getRole() == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("email, password and role are required");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Email, password and role are required"));
             }
 
             if (request.getPasswordHash().length()<8 || request.getPasswordHash().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>72)
-                return ResponseEntity.badRequest().body("Password must have at least 8 characters and at most 72 UTF-8 bytes");
+                return ResponseEntity.badRequest().body(Map.of("message", "Password must have at least 8 characters and at most 72 UTF-8 bytes"));
+            request.setEmail(request.getEmail().trim());
+            if(request.getFullName()==null || request.getFullName().isBlank() || request.getFullName().length()>100 || request.getEmail().isBlank() || request.getEmail().length()>150 || !request.getEmail().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
+                return ResponseEntity.badRequest().body(Map.of("message","Enter a full name and a valid email address"));
+            if(request.getPhoneNumber()!=null) request.setPhoneNumber(request.getPhoneNumber().trim());
             if (request.getPhoneNumber()!=null && request.getPhoneNumber().isBlank()) request.setPhoneNumber(null);
+            if((request.getRole()==Users.Role.CUSTOMER && request.getPhoneNumber()==null) || (request.getPhoneNumber()!=null && !request.getPhoneNumber().matches("^[0-9]{10}$")))
+                return ResponseEntity.badRequest().body(Map.of("message","Enter a valid 10-digit phone number"));
             if (request.getRole() == Users.Role.WORKER) {
                 WorkerRegisterDTO w = request.getWorker();
                 if (w == null || w.getWorkExperience() == null || w.getGender() == null
                         || w.getDateOfBirth() == null || w.getManagerId() == null || w.getManagerId().isBlank()) {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body("worker block with workExperience, gender, dateOfBirth and managerId is required for WORKER role");
+                            .body(Map.of("message", "Worker details and manager ID are required"));
                 }
             }
 
             Users user = request.toUser();
 
             if(userRepo.findByEmail(user.getEmail()) != null ) {
-                return ResponseEntity.status(HttpStatus.CONFLICT).body("email already registered try another one");
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "This email is already registered. Please sign in or use another email."));
             }
+            if(user.getPhoneNumber()!=null && userRepo.findByPhoneNumber(user.getPhoneNumber())!=null)
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message","This phone number is already registered. Please sign in or use another number."));
 
             user.setPasswordHash(encoder.encode(user.getPasswordHash()));
 
-            Users saveUsers = userRepo.save(user);
+            Users saveUsers;
+            try { saveUsers = userRepo.saveAndFlush(user); }
+            catch(org.springframework.dao.DataIntegrityViolationException conflict) {
+                // The unique constraints also protect concurrent registrations after the checks above.
+                if(userRepo.findByEmail(user.getEmail())!=null)
+                    return ResponseEntity.status(409).body(Map.of("message","This email is already registered."));
+                if(user.getPhoneNumber()!=null && userRepo.findByPhoneNumber(user.getPhoneNumber())!=null)
+                    return ResponseEntity.status(409).body(Map.of("message","This phone number is already registered."));
+                throw conflict;
+            }
 
             SaveUserReq payload = new SaveUserReq();
             payload.setUser_id(saveUsers.getUser_id().toString());
@@ -134,18 +151,20 @@ public class AuthService {
                         break;
                     default:
                         userRepo.delete(saveUsers);
-                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("unsupported role: " + saveUsers.getRole());
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Unsupported role"));
                 }
             } catch (Exception e) {
                 // downstream service failed — roll back the auth user so we don't leave an orphan
                 userRepo.delete(saveUsers);
                 e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("downstream service failed during registration, please retry");
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("message", "Could not create your profile. Please try again shortly."));
             }
 
-            if (commonResponse == null || !commonResponse.getStatusCode().is2xxSuccessful()) {
+            if (commonResponse == null || !commonResponse.getStatusCode().is2xxSuccessful()
+                    || (commonResponse.getBody()!=null && Boolean.FALSE.equals(commonResponse.getBody().get("success")))
+                    || (saveUsers.getRole()==Users.Role.CUSTOMER && (commonResponse.getBody()==null || commonResponse.getBody().get("customer")==null))) {
                 userRepo.delete(saveUsers);
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("downstream service did not accept the new user");
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("message", "Could not create your profile. Please try again shortly."));
             }
 
             safeSendEmail(() -> notification.sendRegistrationEmail(saveUsers.getEmail(), saveUsers.getFullName(), saveUsers.getRole().toString()));
@@ -158,7 +177,7 @@ public class AuthService {
 
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("something went wrong while registering the user");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Registration is temporarily unavailable. Please try again shortly."));
         }
 
     }

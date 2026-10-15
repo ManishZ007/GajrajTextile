@@ -20,15 +20,14 @@ export default function Register() {
     setError('');
 
     try {
-      const res = await fetch('http://localhost:8081/auth/register', {
+      const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName,
           email,
           phoneNumber,
-          passwordHash: password,
-          role: 'CUSTOMER',
+          password,
         }),
       });
 
@@ -39,7 +38,11 @@ export default function Register() {
         return;
       }
 
-      await signIn('credentials', { email, password, redirect: false });
+      const login = await signIn('credentials', { email: email.trim(), password, redirect: false });
+      if (!login || login.error) {
+        window.location.href = '/login?registered=true';
+        return;
+      }
       window.location.href = '/';
     } catch {
       setError('Something went wrong. Please try again.');
@@ -147,7 +150,9 @@ export default function Register() {
               </label>
               <input
                 type="tel"
-                placeholder="+91 00000 00000"
+                placeholder="10-digit mobile number"
+                pattern="[0-9]{10}"
+                title="Enter a 10-digit mobile number without the country code"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 required
@@ -164,6 +169,7 @@ export default function Register() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
+                  minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
