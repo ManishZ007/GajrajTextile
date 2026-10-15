@@ -89,12 +89,15 @@ public class AuthService {
 
             if (request.getPasswordHash().length()<8 || request.getPasswordHash().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>72)
                 return ResponseEntity.badRequest().body(Map.of("message", "Password must have at least 8 characters and at most 72 UTF-8 bytes"));
-            request.setEmail(request.getEmail().trim());
+            request.setEmail(ContactRules.email(request.getEmail()));
             if(request.getFullName()==null || request.getFullName().isBlank() || request.getFullName().length()>100 || request.getEmail().isBlank() || request.getEmail().length()>150 || !request.getEmail().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
                 return ResponseEntity.badRequest().body(Map.of("message","Enter a full name and a valid email address"));
             if(request.getPhoneNumber()!=null) request.setPhoneNumber(request.getPhoneNumber().trim());
             if (request.getPhoneNumber()!=null && request.getPhoneNumber().isBlank()) request.setPhoneNumber(null);
-            if((request.getRole()==Users.Role.CUSTOMER && request.getPhoneNumber()==null) || (request.getPhoneNumber()!=null && !request.getPhoneNumber().matches("^[0-9]{10}$")))
+            if(request.getRole()==Users.Role.CUSTOMER) {
+                try { request.setPhoneNumber(ContactRules.mobile(request.getPhoneNumber())); }
+                catch(IllegalArgumentException e) { return ResponseEntity.badRequest().body(Map.of("message",e.getMessage())); }
+            } else if(request.getPhoneNumber()!=null && !request.getPhoneNumber().matches("^[0-9]{10}$"))
                 return ResponseEntity.badRequest().body(Map.of("message","Enter a valid 10-digit phone number"));
             if (request.getRole() == Users.Role.WORKER) {
                 WorkerRegisterDTO w = request.getWorker();
@@ -195,7 +198,7 @@ public class AuthService {
     public  ResponseEntity<?> login (String email, String password) {
 
         try{
-            Users user = userRepo.findByEmail(email);
+            Users user = userRepo.findByEmail(ContactRules.email(email));
 
             if(user == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found with this email: " + email);
@@ -243,7 +246,7 @@ public class AuthService {
         LoginResponseDTO loginResponse = new LoginResponseDTO();
 
         try{
-            Users user = userRepo.findByEmail(email);
+            Users user = userRepo.findByEmail(ContactRules.email(email));
 
             if(user == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found with this email: " + email);
@@ -418,7 +421,7 @@ public class AuthService {
 
             UpdateUserInfoDTO userPayload = new UpdateUserInfoDTO();
             userPayload.setFull_name(updateUserRequest.getUserInfo().getFull_name());
-            userPayload.setEmail(updateUserRequest.getUserInfo().getEmail());
+            userPayload.setEmail(ContactRules.email(updateUserRequest.getUserInfo().getEmail()));
             userPayload.setPhone_number(updateUserRequest.getUserInfo().getPhone_number());
             userPayload.setUpdatedAt(LocalDateTime.now());
 

@@ -23,11 +23,8 @@ public class CustomerOtpService {
         this.users=users; this.store=store; this.crypto=crypto; this.publisher=publisher; this.tokens=tokens; this.enabled=enabled;
     }
     public static String normalizePhone(String input) {
-        if (input == null || input.length() > 24) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        String phone = input.replaceAll("[\\s()-]", "");
-        if (phone.startsWith("+91")) phone = phone.substring(3);
-        if (!phone.matches("[6-9][0-9]{9}")) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        return phone;
+        try { return com.gajraj.authentication.service.ContactRules.mobile(input); }
+        catch(IllegalArgumentException e) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST,e.getMessage()); }
     }
     private void checkEnabled() {
         if (!enabled) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE);

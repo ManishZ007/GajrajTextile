@@ -16,7 +16,8 @@ import java.util.UUID;
 @Repository
 public interface UserRepo extends JpaRepository<Users, UUID> {
 
-    Users findByEmail(String email);
+    @Query("select u from Users u where lower(trim(u.email)) = lower(trim(:email))")
+    Users findByEmail(@Param("email") String email);
 
     Users findByPhoneNumber(String phoneNumber);
 
@@ -35,7 +36,7 @@ public interface UserRepo extends JpaRepository<Users, UUID> {
     UPDATE Users u 
     SET 
         u.fullName = COALESCE(:#{#req.full_name}, u.fullName), 
-        u.email = COALESCE(:#{#req.email}, u.email), 
+        u.email = lower(trim(COALESCE(:#{#req.email}, u.email))),
         u.phoneNumber = COALESCE(:#{#req.phone_number}, u.phoneNumber),
         u.updatedAt = COALESCE(:#{#req.updatedAt}, u.updatedAt)
     WHERE u.user_id = :userId

@@ -41,6 +41,11 @@ public class Users {
     @Email
     @Column(nullable = false, unique = true, length = 150)
     private String email;
+    public void setEmail(String email) {
+        this.email = com.gajraj.authentication.service.ContactRules.email(email);
+    }
+    @PrePersist @PreUpdate
+    private void normalizeEmail() { setEmail(email); }
 
     @Pattern(regexp="^[0-9]{10}$")
     @Column(name = "phone_number", unique = true, length = 20)

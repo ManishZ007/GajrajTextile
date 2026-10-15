@@ -25,7 +25,7 @@ export default function Register() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName,
-          email,
+          email: email.trim().toLowerCase(),
           phoneNumber,
           password,
         }),
@@ -38,7 +38,7 @@ export default function Register() {
         return;
       }
 
-      const login = await signIn('credentials', { email: email.trim(), password, redirect: false });
+      const login = await signIn('credentials', { email: email.trim().toLowerCase(), password, redirect: false });
       if (!login || login.error) {
         window.location.href = '/login?registered=true';
         return;
@@ -151,8 +151,8 @@ export default function Register() {
               <input
                 type="tel"
                 placeholder="10-digit mobile number"
-                pattern="[0-9]{10}"
-                title="Enter a 10-digit mobile number without the country code"
+                pattern="[6-9][0-9]{9}"
+                title="Enter a 10-digit mobile number starting with 6, 7, 8 or 9"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 required

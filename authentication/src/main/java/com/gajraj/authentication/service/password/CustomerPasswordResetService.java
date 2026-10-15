@@ -58,7 +58,7 @@ public class CustomerPasswordResetService {
     public void request(String email, String client) {
         if (email==null || email.length()>150 || !email.trim().matches("[^\\s@<>]+@[^\\s@<>]+\\.[^\\s@<>]+"))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a valid email address.");
-        email=email.trim();
+        email=com.gajraj.authentication.service.ContactRules.email(email);
         if (!store.allow(digest(email.toLowerCase(java.util.Locale.ROOT)), digest(client)))
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Please wait before requesting another email.");
         Users user=users.findByEmail(email);

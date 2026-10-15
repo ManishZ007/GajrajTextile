@@ -53,4 +53,18 @@ class RegistrationTest {
         assertEquals("plain",mapper.readValue("{\"password\":\"plain\"}",RegisterRequestDTO.class).getPasswordHash());
         assertEquals("legacy",mapper.readValue("{\"passwordHash\":\"legacy\"}",RegisterRequestDTO.class).getPasswordHash());
     }
+    @Test void registrationAndOtpUseIdenticalMobileRules(){
+        input.setPhoneNumber("5123456789");
+        assertEquals(400,service.register(input).getStatusCode().value());verify(users,never()).saveAndFlush(any());
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,()->com.gajraj.authentication.service.otp.CustomerOtpService.normalizePhone("5123456789"));
+        input.setPhoneNumber("+91 98765 43210");input.setEmail(" Minal@Example.com ");
+        when(customer.saveNewUser(any())).thenReturn(ResponseEntity.ok(Map.of("customer",Map.of("id","profile"))));
+        assertEquals(201,service.register(input).getStatusCode().value());
+        verify(users).saveAndFlush(argThat(u->"9876543210".equals(u.getPhoneNumber()) && "minal@example.com".equals(u.getEmail())));
+        assertEquals(input.getPhoneNumber(),com.gajraj.authentication.service.otp.CustomerOtpService.normalizePhone("+91 98765 43210"));
+    }
+    @Test void bothLoginPathsNormalizeEmail(){
+        service.login(" Minal@Example.com ","password");service.adminLogin(" Minal@Example.com ","password");
+        verify(users,times(2)).findByEmail("minal@example.com");
+    }
 }
