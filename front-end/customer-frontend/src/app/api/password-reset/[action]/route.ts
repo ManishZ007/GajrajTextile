@@ -1,3 +1,4 @@
+import { authClientHeaders } from '@/lib/authClient';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest, context: { params: Promise<{ action: string }> }) {
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     const payload = action === 'request' ? { email: body.email }
       : action === 'validate' ? { token: body.token } : { token: body.token, password: body.password };
     const response = await fetch(`${process.env.AUTH_SERVICE_URL || 'http://localhost:8081'}/auth/customer/password-reset/${action}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...await authClientHeaders() }, body: JSON.stringify(payload),
       cache: 'no-store', signal: AbortSignal.timeout(10000),
     });
     const data = await response.json();

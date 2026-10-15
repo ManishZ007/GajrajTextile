@@ -47,7 +47,9 @@ class CustomerOtpTest {
     }
     @Test void unknownNumberReturnsRegistrationErrorWithoutChallenge() throws Exception {
         when(store.create(anyString(),anyString(),anyString(),anyString(),anyString())).thenReturn(true);
-        var mvc=MockMvcBuilders.standaloneSetup(new CustomerOtpController(service)).build();
+        var controller=new CustomerOtpController(service);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller,"clientIdentity",new com.gajraj.authentication.service.AuthClientIdentity());
+        var mvc=MockMvcBuilders.standaloneSetup(controller).build();
         mvc.perform(post("/auth/customer/otp/request").contentType("application/json")
                 .content("{\"phone\":\""+phone+"\"}"))
             .andExpect(status().isNotFound())

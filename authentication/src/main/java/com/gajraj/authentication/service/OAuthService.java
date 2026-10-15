@@ -167,25 +167,19 @@ public class OAuthService {
             // Existing OAuth user with this provider identity?
             Users user = userRepo.findByAuthProviderAndProviderUserId(provider, providerUserId);
 
-            // Otherwise, try to link by email
+            // Do not implicitly link a separate provider to an existing account.
             if (user == null && email != null && emailVerified) {
                 Users byEmail = userRepo.findByEmail(email);
                 if (byEmail != null) {
-                    if (byEmail.getAuthProvider() != Users.AuthProvider.LOCAL
-                            && byEmail.getAuthProvider() != provider) {
-                        return ResponseEntity.status(HttpStatus.CONFLICT)
-                                .body("email is already linked to a different sign-in provider");
-                    }
-                    byEmail.setAuthProvider(provider);
-                    byEmail.setProviderUserId(providerUserId);
-                    byEmail.setEmailVerified(true);
-                    user = userRepo.save(byEmail);
+                    // Linking requires an authenticated, explicit account-link flow.
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body("This email already has an account. Use its existing sign-in method.");
                 }
             }
 
             // Brand new user
             if (user == null) {
-                if (email == null) {
+                if (email == null || !emailVerified) {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                             .body("provider did not return an email; cannot create account");
                 }
@@ -194,14 +188,7 @@ public class OAuthService {
                             .body("email already registered; please sign in with that method first");
                 }
 
-                Users.Role role;
-                try {
-                    role = (roleHint == null || roleHint.isBlank())
-                            ? Users.Role.CUSTOMER
-                            : Users.Role.valueOf(roleHint);
-                } catch (IllegalArgumentException e) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("invalid role: " + roleHint);
-                }
+                Users.Role role = Users.Role.CUSTOMER;
 
                 Users fresh = new Users();
                 fresh.setEmail(email);
@@ -222,20 +209,8 @@ public class OAuthService {
                     SaveUserReq req = new SaveUserReq();
                     req.setUser_id(saved.getUser_id().toString());
 
-                    ResponseEntity<Map<String, Object>> downstream = switch (role) {
-                        case CUSTOMER -> {
-                            safeSendEmail(() -> notification.sendRegistrationEmail(saved.getEmail(), saved.getFullName(), saved.getRole().toString()));
-                            yield  customer.saveNewUser(req);
-                        }
-                        case WORKER -> worker.savaNewUser(req);
-                        case MANAGER -> manager.saveNewUser(req);
-                        case OWNER -> {
-                            System.out.println("Not created");
-                            yield ResponseEntity.badRequest().body(Map.of("message", "Owner creation not allowed"));
-                        }
-                        default -> null;
-                    };
-                    if (downstream == null || !downstream.getStatusCode().is2xxSuccessful()) {
+                    ResponseEntity<Map<String, Object>> downstream = customer.saveNewUser(req);
+                    if (downstream == null || !downstream.getStatusCode().is2xxSuccessful() || downstream.getBody()==null || downstream.getBody().get("customer")==null) {
                         userRepo.delete(saved);
                         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                                 .body("downstream service rejected the new OAuth user");
@@ -246,15 +221,15 @@ public class OAuthService {
                     return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                             .body("downstream service failed during OAuth signup");
                 }
+                safeSendEmail(() -> notification.sendRegistrationEmail(saved.getEmail(), saved.getFullName(), saved.getRole().toString()));
                 user = saved;
             }
 
             // Issue tokens
+            if(user.getRole()!=Users.Role.CUSTOMER)
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Use the staff sign-in page");
             String accessToken = jwtService.generateToken(user.getUser_id().toString(), user.getRole().name());
-            RefreshToken existing = refreshTokenRepo.findByUserId(user.getUser_id());
-            String refreshToken = (existing == null)
-                    ? refreshTokenService.createRefreshToken(user).getRefreshToken()
-                    : refreshTokenService.updateRefreshToken(user.getUser_id());
+            String refreshToken = refreshTokenService.createRefreshToken(user).getRefreshToken();
 
             LoginResponseDTO body = new LoginResponseDTO();
             body.setAccess_token(accessToken);

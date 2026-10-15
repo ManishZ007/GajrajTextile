@@ -15,6 +15,12 @@ function envelope(payload = data) {
   return { eventId: id, iv: iv.toString('base64'), ciphertext: encrypted.toString('base64') };
 }
 const env = { SMS_PROVIDER: 'zunoy-sandbox', ZUNOY_SMS_API_KEY: 'test-key', ZUNOY_SMS_SENDER_ID: '12345' };
+test('Docker sandbox requires explicit opt-in and still uses only the mock endpoint', async () => {
+  let url;
+  await createSmsSender({ env: {...env,NODE_ENV:'production',SMS_SANDBOX_ENABLED:'true'},now:()=>now,
+    fetchImpl:async target=>{url=target;return {ok:true};} })(data);
+  assert.equal(url,'https://mock-sms.zunoy.com/sms/new/message');
+});
 test('encrypted SMS round-trips; tampering and expiry are rejected', () => {
   const e = envelope(); assert.deepEqual(decryptLoginOtp(e, key.toString('base64'), now), data);
   assert.throws(() => decryptLoginOtp({...e, eventId: randomUUID()}, key.toString('base64'), now));

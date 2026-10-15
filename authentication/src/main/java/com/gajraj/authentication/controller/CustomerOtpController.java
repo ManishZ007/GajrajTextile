@@ -11,12 +11,13 @@ import java.util.Map;
 @RequestMapping("/auth/customer/otp")
 public class CustomerOtpController {
     private final CustomerOtpService otp;
+    @org.springframework.beans.factory.annotation.Autowired private com.gajraj.authentication.service.AuthClientIdentity clientIdentity;
     public CustomerOtpController(CustomerOtpService otp) { this.otp=otp; }
     public record Request(String phone) {}
     public record Verify(String phone, String challengeId, String code) {}
     @PostMapping("/request")
     public ResponseEntity<?> request(@RequestBody Request body, HttpServletRequest request) {
-        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(otp.request(body.phone(), request.getRemoteAddr()));
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(otp.request(body.phone(), clientIdentity.resolve(request)));
     }
     @PostMapping("/verify")
     public ResponseEntity<?> verify(@RequestBody Verify body) {

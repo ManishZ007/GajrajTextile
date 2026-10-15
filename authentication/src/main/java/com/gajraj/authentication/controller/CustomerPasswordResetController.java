@@ -12,6 +12,7 @@ import java.util.Map;
 @RequestMapping("/auth/customer/password-reset")
 public class CustomerPasswordResetController {
     private final CustomerPasswordResetService service;
+    @org.springframework.beans.factory.annotation.Autowired private com.gajraj.authentication.service.AuthClientIdentity clientIdentity;
     public CustomerPasswordResetController(CustomerPasswordResetService service) { this.service=service; }
     public record Request(String email) {}
     public record Validate(String token) {}
@@ -21,7 +22,7 @@ public class CustomerPasswordResetController {
     }
     @PostMapping("/request")
     public ResponseEntity<?> request(@RequestBody Request body, HttpServletRequest request) {
-        service.request(body.email(),request.getRemoteAddr());
+        service.request(body.email(),clientIdentity.resolve(request));
         return ok("If this email belongs to a customer account with a password, a reset link has been requested. For Google or Facebook accounts, use that sign-in option.");
     }
     @PostMapping("/validate")

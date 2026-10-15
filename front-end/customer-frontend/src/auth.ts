@@ -3,6 +3,12 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import Facebook from 'next-auth/providers/facebook';
 import Credentials from 'next-auth/providers/credentials';
+import { CredentialsSignin } from 'next-auth';
+import { authClientHeaders } from '@/lib/authClient';
+
+class ServiceUnavailable extends CredentialsSignin { code = 'service_unavailable'; }
+class RateLimited extends CredentialsSignin { code = 'rate_limited'; }
+class StaffOnly extends CredentialsSignin { code = 'staff_only'; }
 
 const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:8081';
 
@@ -53,14 +59,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...await authClientHeaders(),
           },
           cache: 'no-store',
           signal: AbortSignal.timeout(10000),
           body: JSON.stringify(mobile ? {
             phone: credentials.phone, code: credentials.code, challengeId: credentials.challengeId,
           } : { email: credentials.email, password: credentials.password }),
-        });
+        }).catch(() => { throw new ServiceUnavailable(); });
 
+        if (res.status >= 500) throw new ServiceUnavailable();
+        if (res.status === 429) throw new RateLimited();
+        if (res.status === 403) throw new StaffOnly();
         if (!res.ok) return null;
 
         const data = await res.json();
@@ -76,77 +86,46 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
 
   callbacks: {
-    async jwt({ token, user, account }) {
-      if (account?.provider == 'credentials' && user) {
+    async signIn({ user, account }) {
+      if (account?.provider !== 'google' && account?.provider !== 'facebook') return true;
+      try {
+        const google = account.provider === 'google';
+        const credential = google ? account.id_token : account.access_token;
+        if (!credential) return false;
+        const res = await fetch(`${authServiceUrl}/auth/oauth/${account.provider}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store', signal: AbortSignal.timeout(10000),
+          body: JSON.stringify(google ? { id_token: credential } : { access_token: credential }),
+        });
+        if (!res.ok) return '/login?error=OAuthSignInFailed';
+        const data = await res.json();
+        if (!data.user_id || !data.access_token || !data.refresh_token) return false;
+        user.id = data.user_id;
+        user.accessToken = data.access_token;
+        user.refreshToken = data.refresh_token;
+        user.accessTokenExpires = Date.now() + (Number(data.expires_in) || 900000);
+        return true;
+      } catch { return '/login?error=ServiceUnavailable'; }
+    },
+    async jwt({ token, user }) {
+      if (user) {
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
         token.accessTokenExpires = user.accessTokenExpires;
         token.sub = user.id;
+        delete token.error;
         return enrichCustomerSession(token, authServiceUrl);
       }
-
-      // google
-      if (account?.provider == 'google') {
-        const res = await fetch(`${authServiceUrl}/auth/oauth/google`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            id_token: account.id_token,
-            role: 'CUSTOMER',
-          }),
-        });
-
-        if (!res.ok)
-          return {
-            ...token,
-            error: 'GoogleOAuthFailed',
-          };
-
-        const data = await res.json();
-
-        token.accessToken = data.access_token;
-        token.refreshToken = data.refresh_token;
-        token.accessTokenExpires = Date.now() + 900000;
-        return token;
-      }
-
-      // facebook
-      if (account?.provider == 'facebook') {
-        const res = await fetch(`${authServiceUrl}/auth/oauth/facebook`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            access_token: account.id_token,
-            role: 'CUSTOMER',
-          }),
-        });
-
-        if (!res.ok)
-          return {
-            ...token,
-            error: 'FacebookOAuthFailed',
-          };
-
-        const data = await res.json();
-        token.accessToken = data.access_token;
-        token.refreshToken = data.refresh_token;
-        token.accessTokenExpires = Date.now() + 900000;
-        return token;
-      }
-
       if (Date.now() < (token.accessTokenExpires as number)) {
         return enrichCustomerSession(token, authServiceUrl);
       }
 
-      const refreshed = await refreshAccessToken(token.refreshToken as string);
+      const refreshed = token.refreshToken ? await refreshAccessToken(token.refreshToken).catch(() => null) : null;
 
       if (!refreshed) {
         return {
           ...token,
+          accessToken: undefined,
           error: 'RefreshTokenExpired',
         };
       }
@@ -169,11 +148,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 
+  events: {
+    async signOut(message) {
+      if ('token' in message && message.token?.refreshToken) {
+        await fetch(`${authServiceUrl}/auth/logout`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ request: message.token.refreshToken }),
+          cache: 'no-store', signal: AbortSignal.timeout(5000),
+        }).catch(() => undefined);
+      }
+    },
+  },
   pages: {
     signIn: '/login',
   },
   session: {
     strategy: 'jwt',
   },
-  secret: process.env.NEXT_PUBLIC_AUTH_SECRET,
+  secret: process.env.AUTH_SECRET,
 });

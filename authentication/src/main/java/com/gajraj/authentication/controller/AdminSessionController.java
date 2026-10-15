@@ -19,16 +19,18 @@ public class AdminSessionController {
     @PostMapping("/auth/admin/session/heartbeat")
     public Map<String,Object> heartbeat(Authentication auth) {
         var user=users.findById(UUID.fromString(auth.getName())).orElseThrow();
-        if (tokens.findByUserId(user.getUser_id()) == null)
+        if (!tokens.hasActiveSession(user.getUser_id(),java.time.Instant.now()))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED);
         presence.touch(auth.getName());
         return Map.of("role",user.getRole().name(),"user_id",auth.getName());
     }
     @PostMapping("/auth/admin/logout")
     @Transactional
-    public ResponseEntity<?> logout(Authentication auth) {
-        tokens.deleteForPasswordReset(UUID.fromString(auth.getName()));
-        presence.leave(auth.getName());
+    public ResponseEntity<?> logout(Authentication auth, @CookieValue(name="refresh_token",required=false) String refreshToken) {
+        if(refreshToken!=null) tokens.findByRefreshToken(refreshToken)
+            .filter(t -> t.getUser().getUser_id().toString().equals(auth.getName()))
+            .ifPresent(t -> tokens.revoke(refreshToken));
+        if(!tokens.hasActiveSession(UUID.fromString(auth.getName()),java.time.Instant.now())) presence.leave(auth.getName());
         var response=ResponseEntity.ok().header("Cache-Control","no-store");
         for (String name:List.of("access_token","refresh_token"))
             response.header("Set-Cookie",ResponseCookie.from(name,"").httpOnly(true).secure(true).path("/").sameSite("Strict").maxAge(0).build().toString());

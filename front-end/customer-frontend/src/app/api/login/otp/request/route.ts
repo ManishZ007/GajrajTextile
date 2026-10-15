@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authClientHeaders } from '@/lib/authClient';
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get('origin');
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Enter a valid Indian mobile number.' }, { status: 400 });
     }
     const response = await fetch(`${process.env.AUTH_SERVICE_URL || 'http://localhost:8081'}/auth/customer/otp/request`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...await authClientHeaders() },
       body: JSON.stringify({ phone: body.phone }), cache: 'no-store', signal: AbortSignal.timeout(10000),
     });
     const data = await response.json();

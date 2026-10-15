@@ -42,6 +42,7 @@ services:
         required: false
     environment:
       SERVER_PORT: "8081"
+      NOTIFICATION_SERVICE_URL: http://notification:4000
       SPRING_PROFILES_ACTIVE: "docker"
       SPRING_JPA_SHOW_SQL: "false"
       SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/gajraj_paithani_auth"

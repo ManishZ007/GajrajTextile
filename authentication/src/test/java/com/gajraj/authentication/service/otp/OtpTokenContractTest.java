@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class OtpTokenContractTest {
-    @Test void createsThenRotatesExistingTokensWithTheSameCustomerContract() {
+    @Test void createsIndependentSessionsWithTheSameCustomerContract() {
         AuthService auth=new AuthService();
         var repo=mock(RefreshTokenRepo.class);var refresh=mock(RefreshTokenService.class);var jwt=mock(JWTService.class);
         ReflectionTestUtils.setField(auth,"refreshTokenRepo",repo);
@@ -27,9 +27,11 @@ class OtpTokenContractTest {
         var first=auth.issueLoginTokens(user);
         assertEquals("access-token",first.getAccess_token());assertEquals("first-refresh",first.getRefresh_token());
         assertEquals(user.getUser_id().toString(),first.getUser_id());assertEquals(900000L,first.getExpires_in());
-        when(repo.findByUserId(user.getUser_id())).thenReturn(token);
-        when(refresh.updateRefreshToken(user.getUser_id())).thenReturn("rotated-refresh");
-        var second=auth.issueLoginTokens(user);assertEquals("rotated-refresh",second.getRefresh_token());
-        verify(refresh,times(1)).createRefreshToken(user);verify(refresh).updateRefreshToken(user.getUser_id());
+        RefreshToken other=new RefreshToken();other.setRefreshToken("second-refresh");
+        when(refresh.createRefreshToken(user)).thenReturn(other);
+        var second=auth.issueLoginTokens(user);assertEquals("second-refresh",second.getRefresh_token());
+        assertEquals("first-refresh",first.getRefresh_token());
+        verify(refresh,times(2)).createRefreshToken(user);
+        verifyNoInteractions(repo);
     }
 }

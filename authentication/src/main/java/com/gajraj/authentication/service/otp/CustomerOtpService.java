@@ -52,7 +52,7 @@ public class CustomerOtpService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE);
         }
         return Map.of("challengeId", id, "expiresIn", 300, "retryAfter", 60,
-                "message", "A login code has been requested for your registered mobile number.");
+                "message", "Test code requested. Open the Zunoy sandbox inbox; no SMS is sent to your phone.");
     }
     public Object verify(String input, String id, String code) {
         checkEnabled();

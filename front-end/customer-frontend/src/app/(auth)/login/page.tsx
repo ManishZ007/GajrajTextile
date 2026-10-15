@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import MobileLogin from '@/components/auth/MobileLogin';
 import { signIn } from 'next-auth/react';
@@ -10,7 +10,11 @@ import { LogoFont } from '@/provider/fonts';
 export default function Login() {
   const [passwordReset, setPasswordReset] = useState(false);
   useEffect(() => {
-    setPasswordReset(new URLSearchParams(window.location.search).get('passwordReset') === 'success');
+    const query = new URLSearchParams(window.location.search);
+    setPasswordReset(query.get('passwordReset') === 'success');
+    if (query.get('error')) setError(query.get('error') === 'ServiceUnavailable'
+      ? 'Sign-in is temporarily unavailable. Please try again shortly.'
+      : 'Social sign-in failed. If you already have an account, use its original sign-in method.');
   }, []);
   const [loginMode, setLoginMode] = useState<'email' | 'mobile'>('email');
   const [email, setEmail] = useState('');
@@ -24,6 +28,7 @@ export default function Login() {
     setLoading(true);
     setError('');
 
+    try {
     const result = await signIn('credentials', {
       email,
       password,
@@ -31,11 +36,17 @@ export default function Login() {
     });
 
     if (result?.error) {
-      setError('Invalid email or password.');
+      const messages: Record<string, string> = {
+        service_unavailable: 'Sign-in is temporarily unavailable. Please try again shortly.',
+        rate_limited: 'Too many sign-in attempts. Please wait 15 minutes.',
+        staff_only: 'Please use the staff sign-in page for this account.',
+      };
+      setError(messages[result.code ?? ''] ?? 'Invalid email or password. If you registered with Google or Facebook, use that sign-in option.');
     } else {
       window.location.href = '/';
     }
-    setLoading(false);
+    } catch { setError('Sign-in is temporarily unavailable. Please try again shortly.'); }
+    finally { setLoading(false); }
   };
 
   return (

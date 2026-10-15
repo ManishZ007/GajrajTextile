@@ -30,6 +30,9 @@ import java.util.UUID;
 @RestController
 @RequestMapping("auth")
 public class AuthController {
+    @Autowired com.gajraj.authentication.service.AuthClientIdentity clientIdentity;
+    @Autowired com.gajraj.authentication.service.LoginAttemptLimiter loginLimiter;
+    @org.springframework.beans.factory.annotation.Value("${SERVICE_INTERNAL_TOKEN:}") private String internalToken;
 
     @Autowired
     AuthService authService;
@@ -67,13 +70,14 @@ public class AuthController {
     }
 
     @PostMapping("login")
-    public ResponseEntity<?> login(@RequestBody AuthLoginDTO loginDTO) {
+    public ResponseEntity<?> login(@RequestBody AuthLoginDTO loginDTO, HttpServletRequest request) {
+        var limited=limitLogin(loginDTO,request); if(limited!=null) return limited;
         return authService.login(loginDTO.getEmail(), loginDTO.getPassword());
     }
 
     @PostMapping("/admin/login")
-    public ResponseEntity<?> adminLogin(@RequestBody AuthLoginDTO loginDTO) {
-        System.out.println("Hello");
+    public ResponseEntity<?> adminLogin(@RequestBody AuthLoginDTO loginDTO, HttpServletRequest request) {
+        var limited=limitLogin(loginDTO,request); if(limited!=null) return limited;
         return authService.adminLogin(loginDTO.getEmail(), loginDTO.getPassword());
     }
 
@@ -109,6 +113,13 @@ public class AuthController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("something went wrong, internal server error");
         }
+    }
+
+    // Possession of this unguessable session token permits revoking only that session.
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestBody RequestRefreshTokenDTO request) {
+        if(request.getRequest()!=null && request.getRequest().length()<=512) refreshTokenService.revoke(request.getRequest());
+        return ResponseEntity.ok().header("Cache-Control","no-store").body(Map.of("message","Signed out"));
     }
 
     @PostMapping("/admin/refresh")
@@ -180,12 +191,17 @@ public class AuthController {
     @GetMapping("/getUserInfo")
     public ResponseEntity<?> userInfo (HttpServletRequest request) {
         String user_id = request.getHeader("X-User-Id");
+        var auth=SecurityContextHolder.getContext().getAuthentication();
+        boolean internal=com.gajraj.authentication.service.AuthClientIdentity.matches(internalToken,request.getHeader("X-Service-Token"));
+        boolean self=auth!=null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getName()) && auth.getName().equals(user_id);
+        if(!internal && !self) return ResponseEntity.status(403).body(Map.of("message","Access denied"));
+        try {UUID.fromString(user_id);} catch(Exception e) {return ResponseEntity.badRequest().body(Map.of("message","Invalid user ID"));}
         try{
             return authService.userInfo(user_id);
 
         }catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                    "message", "internal server error " + e.getMessage()
+                    "message", "Unable to retrieve user"
             ));
 
         }
@@ -225,6 +241,15 @@ public class AuthController {
     }
 
 
+    private ResponseEntity<?> limitLogin(AuthLoginDTO dto,HttpServletRequest request) {
+        if(dto.getEmail()==null || dto.getEmail().length()>254 || dto.getPassword()==null || dto.getPassword().length()>1024)
+            return ResponseEntity.status(401).body(Map.of("message","Invalid email or password"));
+        try {
+            if(!loginLimiter.allow(dto.getEmail(),clientIdentity.resolve(request)))
+                return ResponseEntity.status(429).header("Retry-After","900").body(Map.of("message","Too many sign-in attempts. Try again later."));
+        } catch(Exception e) {return ResponseEntity.status(503).body(Map.of("message","Sign-in is temporarily unavailable."));}
+        return null;
+    }
     private boolean canManage(Authentication auth, UUID target) {
         if (auth==null || "anonymousUser".equals(auth.getName())) return false;
         var role=auth.getAuthorities().stream().map(a->a.getAuthority()).toList();

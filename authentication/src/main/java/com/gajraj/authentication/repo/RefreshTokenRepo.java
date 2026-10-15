@@ -18,32 +18,17 @@ public interface RefreshTokenRepo extends JpaRepository<RefreshToken, UUID> {
 
     Optional<RefreshToken> findByRefreshToken(String token);
 
-    @Query("""
-            SELECT r FROM RefreshToken r WHERE r.user.user_id = :user_id
-            """)
-    RefreshToken findByUserId(@Param("user_id") UUID user_id);
+    @Query("select count(r)>0 from RefreshToken r where r.user.user_id=:userId and r.expiresAt>:now")
+    boolean hasActiveSession(@Param("userId") UUID userId,@Param("now") Instant now);
+
+    @Modifying @Transactional
+    @Query("delete from RefreshToken r where r.refreshToken=:token")
+    void revoke(@Param("token") String token);
 
 
 
     @Modifying
     @Query("delete from RefreshToken r where r.user.user_id = :userId")
     void deleteForPasswordReset(@Param("userId") UUID userId);
-
-    @Modifying
-    @Transactional
-    @Query("""
-    UPDATE RefreshToken r
-    SET 
-        r.refreshToken = :refreshToken,
-        r.expiresAt = :expiresAt,
-        r.createdAt = :createdAt
-    WHERE r.user.user_id = :userId
-""")
-    int updateRefreshTokenByUserId(
-            @Param("userId") UUID userId,
-            @Param("refreshToken") String refreshToken,
-            @Param("expiresAt") Instant expiresAt,
-            @Param("createdAt") Instant createdAt
-    );
 
 }

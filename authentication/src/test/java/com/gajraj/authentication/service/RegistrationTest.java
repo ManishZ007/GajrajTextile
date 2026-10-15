@@ -64,6 +64,7 @@ class RegistrationTest {
         assertEquals(input.getPhoneNumber(),com.gajraj.authentication.service.otp.CustomerOtpService.normalizePhone("+91 98765 43210"));
     }
     @Test void bothLoginPathsNormalizeEmail(){
+        ReflectionTestUtils.setField(service,"passwordEncoder",new BCryptPasswordEncoder(4));
         service.login(" Minal@Example.com ","password");service.adminLogin(" Minal@Example.com ","password");
         verify(users,times(2)).findByEmail("minal@example.com");
     }

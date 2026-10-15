@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.util.Map;
 
-@FeignClient("authentication")
+@FeignClient(name="authentication", configuration=AuthInternalConfiguration.class)
 public interface ConnectionInterface {
 
     @GetMapping("/auth/getUserInfo")

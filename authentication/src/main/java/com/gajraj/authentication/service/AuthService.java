@@ -77,6 +77,7 @@ public class AuthService {
 
     // bCryptPassword
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
+    private static final String dummyPasswordHash = new BCryptPasswordEncoder(12).encode("unused-comparison-password");
 
 
     // register
@@ -201,23 +202,16 @@ public class AuthService {
             Users user = userRepo.findByEmail(ContactRules.email(email));
 
             if(user == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found with this email: " + email);
-            }
-
-            if (user.getAuthProvider() != null && user.getAuthProvider() != Users.AuthProvider.LOCAL) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body("this account uses " + user.getAuthProvider().name() + " sign-in, please use that provider");
+                passwordEncoder.matches(password == null ? "" : password, dummyPasswordHash);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message","Invalid email or password"));
             }
 
             if (user.getPasswordHash() == null
-                    || !passwordEncoder.matches(password, user.getPasswordHash())) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
+                    || !passwordEncoder.matches(password == null ? "" : password, user.getPasswordHash())) {
+                if(user.getPasswordHash()==null) passwordEncoder.matches(password == null ? "" : password,dummyPasswordHash);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message","Invalid email or password"));
             }
-
-            if(user.getRole()==Users.Role.MANAGER) {
-                var accessCheck=checkAdminAccount(user);
-                if(accessCheck!=null) return accessCheck;
-            }
+            if(user.getRole()!=Users.Role.CUSTOMER) return ResponseEntity.status(403).body(Map.of("message","Use the staff sign-in page"));
             return ResponseEntity.ok(issueLoginTokens(user));
 
         }catch (Exception e) {
@@ -231,11 +225,8 @@ public class AuthService {
     // Shared token contract for password and customer OTP login.
     public LoginResponseDTO issueLoginTokens(Users user) {
         LoginResponseDTO response = new LoginResponseDTO();
-        RefreshToken existing = refreshTokenRepo.findByUserId(user.getUser_id());
         response.setAccess_token(jwtService.generateToken(user.getUser_id().toString(), user.getRole().name()));
-        response.setRefresh_token(existing == null
-                ? refreshTokenService.createRefreshToken(user).getRefreshToken()
-                : refreshTokenService.updateRefreshToken(user.getUser_id()));
+        response.setRefresh_token(refreshTokenService.createRefreshToken(user).getRefreshToken());
         response.setUser_id(user.getUser_id().toString());
         response.setExpires_in(expiration);
         return response;
@@ -249,17 +240,14 @@ public class AuthService {
             Users user = userRepo.findByEmail(ContactRules.email(email));
 
             if(user == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found with this email: " + email);
-            }
-
-            if (user.getAuthProvider() != null && user.getAuthProvider() != Users.AuthProvider.LOCAL) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body("this account uses " + user.getAuthProvider().name() + " sign-in, please use that provider");
+                passwordEncoder.matches(password == null ? "" : password,dummyPasswordHash);
+                return ResponseEntity.status(401).body(Map.of("message","Invalid email or password"));
             }
 
             if (user.getPasswordHash() == null
-                    || !passwordEncoder.matches(password, user.getPasswordHash())) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
+                    || !passwordEncoder.matches(password == null ? "" : password, user.getPasswordHash())) {
+                if(user.getPasswordHash()==null) passwordEncoder.matches(password == null ? "" : password,dummyPasswordHash);
+                return ResponseEntity.status(401).body(Map.of("message","Invalid email or password"));
             }
 
             if(user.getRole() != Users.Role.MANAGER && user.getRole() != Users.Role.OWNER) {
@@ -270,26 +258,7 @@ public class AuthService {
             var accessCheck=checkAdminAccount(user);
             if(accessCheck!=null) return accessCheck;
 
-            RefreshToken isRefreshTokenAvailable = refreshTokenRepo.findByUserId(user.getUser_id());
-
-            if(isRefreshTokenAvailable == null) {
-                String accessToken =  jwtService.generateToken(user.getUser_id().toString(), user.getRole().name()); // 15 min
-                RefreshToken refresh_token = refreshTokenService.createRefreshToken(user); // 10 days
-
-
-                loginResponse.setAccess_token(accessToken);
-                loginResponse.setRefresh_token(refresh_token.getRefreshToken());
-
-            }else {
-                String updatedAccessToken = jwtService.generateToken(user.getUser_id().toString(), user.getRole().name());
-                String updatedRefreshToken = refreshTokenService.updateRefreshToken(user.getUser_id());
-
-
-                loginResponse.setAccess_token(updatedAccessToken);
-                loginResponse.setRefresh_token(updatedRefreshToken);
-
-
-            }
+            loginResponse = issueLoginTokens(user);
             loginResponse.setUser_id(user.getUser_id().toString());
             loginResponse.setExpires_in(expiration);
 

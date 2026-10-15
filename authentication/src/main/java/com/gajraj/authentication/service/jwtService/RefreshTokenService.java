@@ -39,21 +39,6 @@ public class RefreshTokenService {
     }
 
 
-    public String updateRefreshToken (UUID userId) {
-
-        String newToken = generateSecureToken();
-        Instant now = Instant.now();
-        Instant expiry = now.plusSeconds(60L * 60L * 24L * 10L); // 10 days
-
-        int updated = refreshTokenRepo.updateRefreshTokenByUserId(
-                userId,
-                newToken,
-                expiry,
-                now
-        );
-        return newToken;
-    }
-
     public boolean verifyExpiration(RefreshToken token) {
 
         if (token.getExpiresAt().isBefore(Instant.now())) {
@@ -69,6 +54,7 @@ public class RefreshTokenService {
     public RefreshToken getByToken (String token) {
         return refreshTokenRepo.findByRefreshToken(token).orElse(null);
     }
+    public void revoke(String token) { refreshTokenRepo.revoke(token); }
 
 
 }

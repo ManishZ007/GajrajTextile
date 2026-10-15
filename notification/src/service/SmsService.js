@@ -7,7 +7,7 @@ export function createSmsSender({
 } = {}) {
   return async (data) => {
     // This adapter is deliberately sandbox-only. A live adapter is a separate deployment decision.
-    if (env.NODE_ENV === "production" || env.SMS_PROVIDER !== "zunoy-sandbox")
+    if ((env.NODE_ENV === "production" && env.SMS_SANDBOX_ENABLED !== "true") || env.SMS_PROVIDER !== "zunoy-sandbox")
       throw new PermanentSmsError("SMS sandbox is not enabled");
     const url = new URL(
       env.ZUNOY_SMS_URL || "https://mock-sms.zunoy.com/sms/new/message",
@@ -60,7 +60,7 @@ export const sendLoginSms = createSmsSender();
 
 export function smsConfigurationReady(env = process.env) {
   return (
-    env.NODE_ENV !== "production" &&
+    (env.NODE_ENV !== "production" || env.SMS_SANDBOX_ENABLED === "true") &&
     env.SMS_PROVIDER === "zunoy-sandbox" &&
     Boolean(env.ZUNOY_SMS_API_KEY) &&
     Number.isSafeInteger(Number(env.ZUNOY_SMS_SENDER_ID)) &&
