@@ -33,7 +33,7 @@ class InventoryAccessTest {
     }
     @Test void customersAndWorkersCannotReadOrChangeChecks() throws Exception {
         var path = "/product/inventory/" + UUID.randomUUID();
-        mvc.perform(get("/product/inventory/all")).andExpect(status().isForbidden());
+        mvc.perform(get("/product/inventory/all")).andExpect(status().isUnauthorized());
         for (String role : new String[]{"CUSTOMER", "WORKER"}) {
             token(role);
             mvc.perform(get("/product/inventory/all").header("Authorization", "Bearer " + role)).andExpect(status().isForbidden());
@@ -57,8 +57,8 @@ class InventoryAccessTest {
         token("CUSTOMER");
         for(String path:new String[]{"/product/update/", "/product/variants/update/", "/product/variants/decrement-stock/", "/product/variants/increment-stock/"})
             mvc.perform(put(path+UUID.randomUUID()).header("Authorization","Bearer CUSTOMER")).andExpect(status().isForbidden());
-        mvc.perform(post("/product/create")).andExpect(status().isForbidden());
-        mvc.perform(delete("/product/variants/delete/"+UUID.randomUUID())).andExpect(status().isForbidden());
+        mvc.perform(post("/product/create")).andExpect(status().isUnauthorized());
+        mvc.perform(delete("/product/variants/delete/"+UUID.randomUUID())).andExpect(status().isUnauthorized());
     }
     void token(String role) {
         when(jwt.validationToken(role)).thenReturn(true);

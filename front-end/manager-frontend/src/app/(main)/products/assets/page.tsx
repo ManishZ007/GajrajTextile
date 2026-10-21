@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import CategoryStudio from "@/components/customization/CategoryStudio";
 import { usePageTitle } from "@/hooks/usePagetitle";
 import {
   fetchCategories,
@@ -623,6 +624,7 @@ export default function AssetsPage() {
   // Base model URL
   const [categoryData, setCategoryData] = useState<Category | null>(null);
   const [baseModelUrl, setBaseModelUrl] = useState("");
+  const [studioRevision, setStudioRevision] = useState(0);
   const [baseModelUploading, setBaseModelUploading] = useState(false);
   const [baseModelSaving, setBaseModelSaving] = useState(false);
   const [baseModelDeleting, setBaseModelDeleting] = useState(false);
@@ -693,6 +695,7 @@ export default function AssetsPage() {
       await deleteCategoryBaseModel(selectedCategoryId);
       setBaseModelUrl("");
       setBaseModelSuccess(true);
+      setStudioRevision(value => value + 1);
       setTimeout(() => setBaseModelSuccess(false), 3000);
     } catch (err: unknown) {
       setBaseModelError(err instanceof Error ? err.message : "Failed to delete");
@@ -713,6 +716,7 @@ export default function AssetsPage() {
         baseModelUrl: baseModelUrl.trim() || undefined,
       });
       setBaseModelSuccess(true);
+      setStudioRevision(value => value + 1);
       setTimeout(() => setBaseModelSuccess(false), 3000);
     } catch (err: unknown) {
       setBaseModelError(err instanceof Error ? err.message : "Failed to save");
@@ -923,6 +927,8 @@ export default function AssetsPage() {
               />
             )}
           </div>
+
+          <CategoryStudio key={selectedCategoryId} categoryId={selectedCategoryId} revision={studioRevision} />
 
           {/* Colors */}
           <div className="grid grid-cols-2 gap-4">

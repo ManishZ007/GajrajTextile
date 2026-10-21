@@ -34,6 +34,8 @@ public class Security {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         httpSecurity.authorizeHttpRequests(registry -> registry
+                .requestMatchers("/product/design-requests", "/product/design-requests/**").hasAnyRole("CUSTOMER","MANAGER","OWNER")
+                .requestMatchers("/product/categories/*/studio").hasAnyRole("MANAGER", "OWNER")
                 .requestMatchers("/product/inventory/**", "/product/create", "/product/update/**", "/product/variants/update/**", "/product/variants/delete/**").hasAnyRole("MANAGER", "OWNER")
                 .requestMatchers("/manager/**").permitAll()
                 .requestMatchers("/product/**").permitAll()

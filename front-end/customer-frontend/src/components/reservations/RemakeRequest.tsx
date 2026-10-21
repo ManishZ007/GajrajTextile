@@ -54,7 +54,7 @@ export default function RemakeRequest({ productId, variantId }: { productId: str
       <label className="block">
         <span className={labelText}>Delivery address</span>
         <span className="relative block">
-          <select required className="w-full appearance-none border-b border-black/15 bg-transparent text-[13.5px] font-light text-[#1B1B1B] pb-3 pt-1 pr-6 outline-none focus:border-[#1B1B1B] transition-colors duration-200 cursor-pointer" value={addressId} onChange={e => setAddressId(e.target.value)}>
+          <select required className="select-luxe w-full appearance-none border-b border-black/15 bg-transparent text-[13.5px] font-light text-[#1B1B1B] pb-3 pt-1 pr-6 outline-none focus:border-[#1B1B1B] transition-colors duration-200 cursor-pointer" value={addressId} onChange={e => setAddressId(e.target.value)}>
             <option value="">Select your address</option>
             {addresses.map(a => <option key={a.id} value={a.id}>{a.street}, {a.city}, {a.postalCode}</option>)}
           </select>

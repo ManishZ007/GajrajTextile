@@ -30,8 +30,17 @@ test('Facebook uses access token, and session identity comes from Authentication
 test('rejected OAuth never proceeds to issue a session',async()=>{
   const auth=config(async()=>new Response('conflict',{status:409}));
   const user={id:'google-id'};
-  assert.equal(await auth.callbacks.signIn({user,account:{provider:'google',id_token:'google-token'}}),'/login?error=OAuthSignInFailed');
+  assert.equal(await auth.callbacks.signIn({user,account:{provider:'google',id_token:'google-token'}}),'/login?error=OAuthAccountExists');
   assert.equal(user.accessToken,undefined);
+});
+
+test('Facebook failure redirects explain missing email, staff restrictions and outages', async () => {
+  for (const [status, error] of [[400, 'FacebookEmailRequired'], [403, 'StaffOnly'], [503, 'ServiceUnavailable'], [401, 'OAuthSignInFailed']]) {
+    const auth = config(async () => new Response('', {status}));
+    const user = {id: 'facebook-id'};
+    assert.equal(await auth.callbacks.signIn({user, account: {provider: 'facebook', access_token: 'test'}}), `/login?error=${error}`);
+    assert.equal(user.accessToken, undefined);
+  }
 });
 test('operational login failures are distinguishable from wrong credentials',async()=>{
   for(const [status,code] of [[503,'service_unavailable'],[429,'rate_limited'],[403,'staff_only']]) {

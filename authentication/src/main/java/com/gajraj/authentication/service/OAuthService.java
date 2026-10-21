@@ -67,7 +67,14 @@ public class OAuthService {
     private Long expiration;
 
     private GoogleIdTokenVerifier googleVerifier;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = facebookHttpClient();
+
+    private static RestTemplate facebookHttpClient() {
+        var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(3000);
+        factory.setReadTimeout(3000);
+        return new RestTemplate(factory);
+    }
 
     @PostConstruct
     void init() {
@@ -120,12 +127,16 @@ public class OAuthService {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Facebook OAuth is not configured");
         }
 
-        // Step 1: confirm the token was issued for THIS app via debug_token.
+        // Step 1: confirm app ownership, validity and the user identity.
+        String verifiedUserId;
         try {
-            String appAccessToken = facebookAppId + "|" + facebookAppSecret;
-            String debugUrl = "https://graph.facebook.com/debug_token?input_token=" + accessToken
-                    + "&access_token=" + appAccessToken;
-            Map<String, Object> debugResp = restTemplate.getForObject(debugUrl, Map.class);
+            var debugUrl = org.springframework.web.util.UriComponentsBuilder
+                    .fromUriString("https://graph.facebook.com/debug_token")
+                    .queryParam("input_token", "{token}").encode().buildAndExpand(accessToken).toUri();
+            var headers = new org.springframework.http.HttpHeaders();
+            headers.setBearerAuth(facebookAppId + "|" + facebookAppSecret);
+            Map<String, Object> debugResp = restTemplate.exchange(debugUrl, org.springframework.http.HttpMethod.GET,
+                    new org.springframework.http.HttpEntity<>(headers), Map.class).getBody();
             if (debugResp == null || !(debugResp.get("data") instanceof Map<?, ?> data)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Facebook token introspection failed");
             }
@@ -134,8 +145,17 @@ public class OAuthService {
             if (!facebookAppId.equals(String.valueOf(tokenAppId)) || !Boolean.TRUE.equals(isValid)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Facebook token is not valid for this app");
             }
+            verifiedUserId = data.get("user_id") instanceof String id ? id : "";
+            long now = java.time.Instant.now().getEpochSecond();
+            if (verifiedUserId.isBlank() || expired(data.get("expires_at"), now)
+                    || expired(data.get("data_access_expires_at"), now)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Facebook token is expired or has no user identity");
+            }
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Facebook is temporarily unavailable");
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Facebook token verification failed: " + e.getMessage());
+            // HTTP exceptions can contain request URLs and credentials. Never return them.
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Facebook token verification failed");
         }
 
         // Step 2: fetch profile.
@@ -143,20 +163,30 @@ public class OAuthService {
         String email;
         String fullName;
         try {
-            String meUrl = "https://graph.facebook.com/me?fields=id,name,email&access_token=" + accessToken;
-            Map<String, Object> me = restTemplate.getForObject(meUrl, Map.class);
+            var headers = new org.springframework.http.HttpHeaders();
+            headers.setBearerAuth(accessToken);
+            Map<String, Object> me = restTemplate.exchange(
+                    "https://graph.facebook.com/me?fields=id,name,email", org.springframework.http.HttpMethod.GET,
+                    new org.springframework.http.HttpEntity<>(headers), Map.class).getBody();
             if (me == null || me.get("id") == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Could not fetch Facebook profile");
             }
             providerUserId = String.valueOf(me.get("id"));
+            if (!verifiedUserId.equals(providerUserId)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Facebook profile identity does not match token");
+            }
             email = (String) me.get("email"); // can be null if user denied email scope
             fullName = (String) me.get("name");
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("Facebook profile fetch failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("Facebook profile fetch failed");
         }
 
         // Facebook emails come pre-verified by Facebook when present.
         return upsertAndIssueTokens(Users.AuthProvider.FACEBOOK, providerUserId, email, email != null, fullName, roleHint);
+    }
+
+    private static boolean expired(Object value, long now) {
+        return value instanceof Number number && number.longValue() != 0 && number.longValue() <= now;
     }
 
     // ----------------- shared upsert + token issuance -----------------
@@ -164,6 +194,8 @@ public class OAuthService {
                                                    String email, boolean emailVerified,
                                                    String fullName, String roleHint) {
         try {
+            email = email == null ? null : email.trim().toLowerCase(java.util.Locale.ROOT);
+            if (email != null && email.isBlank()) email = null;
             // Existing OAuth user with this provider identity?
             Users user = userRepo.findByAuthProviderAndProviderUserId(provider, providerUserId);
 

@@ -2,17 +2,62 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  ShoppingBag,
-  Plus,
-  Minus,
-  Sparkles,
-  ArrowRight,
-  Mail,
-  MessageCircle,
-} from 'lucide-react';
+import { ShoppingBag, Plus, Minus, ArrowRight, Mail } from 'lucide-react';
 
 import { ProductVariant } from '@/types/productDetail';
+
+function OutOfStockNote({
+  heading,
+  steps,
+  footnote,
+  children,
+}: {
+  heading: string;
+  steps: string[];
+  footnote: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="border-t border-black/8 pt-6 flex flex-col gap-5"
+    >
+      <div className="flex flex-col gap-3">
+        <p className="text-[0.725rem] tracking-[1.5px] uppercase text-[#1B1B1B]/75">
+          Currently out of stock
+        </p>
+        <p
+          className="font-light text-[#1B1B1B] leading-[1.25]"
+          style={{ fontSize: 'clamp(1.05rem, 1.6vw, 1.25rem)' }}
+        >
+          {heading}
+        </p>
+      </div>
+
+      <ol className="flex flex-col">
+        {steps.map((step, i) => (
+          <li
+            key={step}
+            className={`flex items-baseline gap-4 py-3 ${i < steps.length - 1 ? 'border-b border-black/8' : ''}`}
+          >
+            <span className="text-[0.65rem] tracking-[1.5px] text-[#1B1B1B]/35 w-5 shrink-0">
+              {String(i + 1).padStart(2, '0')}
+            </span>
+            <span className="text-[13px] font-light text-[#1B1B1B]/70 leading-[1.6]">{step}</span>
+          </li>
+        ))}
+      </ol>
+
+      {children}
+
+      <p className="text-[11px] font-light text-[#1B1B1B]/40 text-center tracking-[0.3px]">
+        {footnote}
+      </p>
+    </motion.div>
+  );
+}
 
 interface ProductActionsProps {
   isCustomizable: boolean;
@@ -159,130 +204,44 @@ export function ProductActions({
 
       {/* Out of stock — scenario A: customizable → custom order prompt */}
       {isOutOfStock && isCustomizable && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          style={{
-            background: 'linear-gradient(135deg, #fdf6ec 0%, #fef9f0 100%)',
-            border: '1.5px solid #e8d5b0',
-            borderRadius: '20px',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column' as const,
-            gap: '14px',
-          }}
+        <OutOfStockNote
+          heading="Love this Paithani? We can weave one just for you."
+          steps={[
+            "We load this saree's colours, motifs & weave as your starting point",
+            'You tweak what you like — zari, border, pallu, base colour',
+            'Our weavers craft it fresh, exclusively for you',
+          ]}
+          footnote="Handcrafted to order · Delivery in 45–60 days"
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#1B1B1B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Sparkles size={16} strokeWidth={1.6} color="#f0c97a" />
-            </div>
-            <div>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: '#1B1B1B', lineHeight: 1.3 }}>
-                This design is currently out of stock
-              </p>
-              <p style={{ fontSize: '12px', color: '#7a6a52', marginTop: '3px', lineHeight: 1.5 }}>
-                Love this Paithani? We can weave one just for you.
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '8px', paddingLeft: '4px' }}>
-            {[
-              "We load this saree's colours, motifs & weave as your starting point",
-              'You tweak what you like — zari, border, pallu, base colour',
-              'Our weavers craft it fresh, exclusively for you',
-            ].map((step, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#1B1B1B', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
-                  {i + 1}
-                </span>
-                <p style={{ fontSize: '12px', color: '#5a4a35', lineHeight: 1.5 }}>{step}</p>
-              </div>
-            ))}
-          </div>
-
-          <motion.button
-            whileTap={{ scale: 0.97 }}
+          <button
             onClick={onCustomize}
-            style={{ width: '100%', height: '52px', borderRadius: '9999px', background: '#000000', color: '#fff', fontSize: '13px', fontWeight: 400, letterSpacing: '1.5px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', border: 'none' }}
+            className="w-full h-[54px] flex items-center justify-center gap-2 bg-black rounded-full text-white text-[0.725rem] tracking-[1.5px] uppercase hover:opacity-80 transition-opacity duration-200 cursor-pointer"
           >
-            Customise &amp; Order Yours
-            <ArrowRight size={15} strokeWidth={2} />
-          </motion.button>
-
-          <p style={{ fontSize: '10.5px', color: '#a08c6e', textAlign: 'center' as const, lineHeight: 1.4 }}>
-            Custom orders are handcrafted to order · Delivery in 45–60 days
-          </p>
-        </motion.div>
+            Customise &amp; order yours
+            <ArrowRight size={13} strokeWidth={1.5} />
+          </button>
+        </OutOfStockNote>
       )}
 
       {/* Out of stock — scenario B: not customizable → contact us */}
       {isOutOfStock && !isCustomizable && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          style={{
-            background: 'linear-gradient(135deg, #fdf6ec 0%, #fef9f0 100%)',
-            border: '1.5px solid #e8d5b0',
-            borderRadius: '20px',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column' as const,
-            gap: '14px',
-          }}
+        <OutOfStockNote
+          heading="Still interested? Our team will check if we can arrange it for you."
+          steps={[
+            'Email us the product name and your requirements',
+            'Our team reviews and replies within 24 hours',
+            'If possible, we arrange it specially for you',
+          ]}
+          footnote="support@gajrajpaithani.com · We reply within 24 hrs"
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#1B1B1B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <MessageCircle size={16} strokeWidth={1.6} color="#f0c97a" />
-            </div>
-            <div>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: '#1B1B1B', lineHeight: 1.3 }}>
-                This design is currently out of stock
-              </p>
-              <p style={{ fontSize: '12px', color: '#7a6a52', marginTop: '3px', lineHeight: 1.5 }}>
-                Still interested? Reach out to us — our team will personally check if we can arrange this for you.
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '8px', paddingLeft: '4px' }}>
-            {[
-              'Drop us an email with the product name and your requirements',
-              'Our team reviews and gets back to you within 24 hours',
-              'If possible, we arrange it specially for you',
-            ].map((step, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#1B1B1B', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
-                  {i + 1}
-                </span>
-                <p style={{ fontSize: '12px', color: '#5a4a35', lineHeight: 1.5 }}>{step}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Email CTA */}
           <a
             href="mailto:support@gajrajpaithani.com?subject=Out of Stock Enquiry&body=Hi Gajraj Paithani Team,%0A%0AI am interested in a product that is currently out of stock. Could you please help me?%0A%0AProduct: [product name]%0A%0AThank you."
-            style={{ textDecoration: 'none' }}
+            className="w-full h-[54px] flex items-center justify-center gap-2 bg-black rounded-full text-white text-[0.725rem] tracking-[1.5px] uppercase hover:opacity-80 transition-opacity duration-200"
           >
-            <motion.div
-              whileTap={{ scale: 0.97 }}
-              style={{ width: '100%', height: '52px', borderRadius: '9999px', background: '#000000', color: '#fff', fontSize: '13px', fontWeight: 400, letterSpacing: '1.5px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
-            >
-              <Mail size={15} strokeWidth={2} />
-              Email Us Your Enquiry
-            </motion.div>
+            <Mail size={13} strokeWidth={1.5} />
+            Email us your enquiry
           </a>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-            <Mail size={11} strokeWidth={1.8} color="#a08c6e" />
-            <p style={{ fontSize: '10.5px', color: '#a08c6e' }}>
-              support@gajrajpaithani.com · We reply within 24 hrs
-            </p>
-          </div>
-        </motion.div>
+        </OutOfStockNote>
       )}
     </div>
   );

@@ -323,17 +323,16 @@ export default function CustomPaithaniPage() {
             Ready to design your Paithani?
           </h2>
           <p className="text-[13px] text-[#1B1B1B]/60 font-light leading-[1.8] max-w-md mb-10">
-            Browse our collections, select a product, and choose the
-            &quot;Customise&quot; option to begin specifying your design. Our
-            team will contact you within 24 hours to confirm your choices and
-            begin the weaving process.
+            Choose a product, preview your colors and designs, and submit your
+            choices for a quote. Our team will review your design and confirm
+            the price, materials and delivery estimate before production.
           </p>
           <div className="flex flex-wrap gap-4 items-center">
             <Link
-              href="/collections"
+              href="/customize"
               className="inline-block text-[0.725rem] tracking-[1.5px] uppercase text-white px-8 py-3 bg-black rounded-full hover:opacity-80 transition-opacity duration-200"
             >
-              Browse Collections
+              Start Your Design
             </Link>
             <Link
               href="/contact"

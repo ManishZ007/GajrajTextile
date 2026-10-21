@@ -402,12 +402,21 @@ export async function fetchButtiesByCategory(categoryId: string) {
   }));
 }
 
+function normalizeColors(data: unknown) {
+  return (Array.isArray(data) ? data : []).map((color: Record<string, string>) => ({
+    ...color,
+    id: color.bodyColorId ?? color.borderColorId ?? color.id,
+    name: color.colorName ?? color.name,
+    hexCode: color.hexCode,
+  }));
+}
+
 export async function fetchBodyColorsByCategory(categoryId: string) {
-  return apiFetch(`${PRODUCT_SERVICE}/body-colors/category/${categoryId}`);
+  return normalizeColors(await apiFetch(`${PRODUCT_SERVICE}/body-colors/category/${categoryId}`));
 }
 
 export async function fetchBorderColorsByCategory(categoryId: string) {
-  return apiFetch(`${PRODUCT_SERVICE}/border-colors/category/${categoryId}`);
+  return normalizeColors(await apiFetch(`${PRODUCT_SERVICE}/border-colors/category/${categoryId}`));
 }
 
 // CRUD for padars
@@ -454,30 +463,30 @@ export async function deleteButti(id: string) {
 
 // CRUD for body colors
 export async function fetchAllBodyColors() {
-  return apiFetch(`${PRODUCT_SERVICE}/body-colors`);
+  return normalizeColors(await apiFetch(`${PRODUCT_SERVICE}/body-colors/all`));
 }
 export async function createBodyColor(data: { name: string; hexCode: string; categoryId: string }) {
-  return apiFetch(`${PRODUCT_SERVICE}/body-colors`, { method: "POST", body: JSON.stringify(data) });
+  return apiFetch(`${PRODUCT_SERVICE}/body-colors/create`, { method: "POST", body: JSON.stringify(data) });
 }
 export async function updateBodyColor(id: string, data: { name: string; hexCode: string }) {
-  return apiFetch(`${PRODUCT_SERVICE}/body-colors/${id}`, { method: "PUT", body: JSON.stringify(data) });
+  return apiFetch(`${PRODUCT_SERVICE}/body-colors/update/${id}`, { method: "PUT", body: JSON.stringify(data) });
 }
 export async function deleteBodyColor(id: string) {
-  return apiFetch(`${PRODUCT_SERVICE}/body-colors/${id}`, { method: "DELETE" });
+  return apiFetch(`${PRODUCT_SERVICE}/body-colors/delete/${id}`, { method: "DELETE" });
 }
 
 // CRUD for border colors
 export async function fetchAllBorderColors() {
-  return apiFetch(`${PRODUCT_SERVICE}/border-colors`);
+  return normalizeColors(await apiFetch(`${PRODUCT_SERVICE}/border-colors/all`));
 }
 export async function createBorderColor(data: { name: string; hexCode: string; categoryId: string }) {
-  return apiFetch(`${PRODUCT_SERVICE}/border-colors`, { method: "POST", body: JSON.stringify(data) });
+  return apiFetch(`${PRODUCT_SERVICE}/border-colors/create`, { method: "POST", body: JSON.stringify(data) });
 }
 export async function updateBorderColor(id: string, data: { name: string; hexCode: string }) {
-  return apiFetch(`${PRODUCT_SERVICE}/border-colors/${id}`, { method: "PUT", body: JSON.stringify(data) });
+  return apiFetch(`${PRODUCT_SERVICE}/border-colors/update/${id}`, { method: "PUT", body: JSON.stringify(data) });
 }
 export async function deleteBorderColor(id: string) {
-  return apiFetch(`${PRODUCT_SERVICE}/border-colors/${id}`, { method: "DELETE" });
+  return apiFetch(`${PRODUCT_SERVICE}/border-colors/delete/${id}`, { method: "DELETE" });
 }
 
 export async function fetchStockHistory(

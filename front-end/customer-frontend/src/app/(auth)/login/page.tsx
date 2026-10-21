@@ -12,9 +12,17 @@ export default function Login() {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     setPasswordReset(query.get('passwordReset') === 'success');
-    if (query.get('error')) setError(query.get('error') === 'ServiceUnavailable'
-      ? 'Sign-in is temporarily unavailable. Please try again shortly.'
-      : 'Social sign-in failed. If you already have an account, use its original sign-in method.');
+    const socialErrors: Record<string, string> = {
+      ServiceUnavailable: 'Sign-in is temporarily unavailable. Please try again shortly.',
+      OAuthAccountExists: 'This email already has an account. Please use its original sign-in method.',
+      StaffOnly: 'Please use the staff sign-in page for this account.',
+      FacebookEmailRequired: 'Facebook did not share an email address. Allow email access, or register using email instead.',
+      AccessDenied: 'Social sign-in was cancelled or denied. Please try again.',
+      Configuration: 'Social sign-in is not configured correctly. Please contact support.',
+    };
+    const socialError = query.get('error');
+    if (socialError) setError(socialErrors[socialError] ??
+      'Social sign-in failed. Please try again or use your original sign-in method.');
   }, []);
   const [loginMode, setLoginMode] = useState<'email' | 'mobile'>('email');
   const [email, setEmail] = useState('');

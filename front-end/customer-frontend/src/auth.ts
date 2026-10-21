@@ -41,6 +41,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Facebook({
       clientId: process.env.FACEBOOK_CLIENT_ID!,
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
+      // Use the app's Graph API version rather than the library's old v19 URL.
+      authorization: {
+        url: 'https://www.facebook.com/dialog/oauth',
+        params: { scope: 'email,public_profile' },
+      },
+      checks: ['state'],
     }),
     Credentials({
       credentials: {
@@ -97,7 +103,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           cache: 'no-store', signal: AbortSignal.timeout(10000),
           body: JSON.stringify(google ? { id_token: credential } : { access_token: credential }),
         });
-        if (!res.ok) return '/login?error=OAuthSignInFailed';
+        if (!res.ok) {
+          const error = res.status >= 500 ? 'ServiceUnavailable'
+            : res.status === 409 ? 'OAuthAccountExists'
+            : res.status === 403 ? 'StaffOnly'
+            : res.status === 400 && !google ? 'FacebookEmailRequired'
+            : 'OAuthSignInFailed';
+          return `/login?error=${error}`;
+        }
         const data = await res.json();
         if (!data.user_id || !data.access_token || !data.refresh_token) return false;
         user.id = data.user_id;
@@ -161,6 +174,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   pages: {
     signIn: '/login',
+    error: '/login',
   },
   session: {
     strategy: 'jwt',

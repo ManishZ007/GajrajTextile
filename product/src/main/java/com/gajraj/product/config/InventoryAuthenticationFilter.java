@@ -39,7 +39,7 @@ public class InventoryAuthenticationFilter extends org.springframework.web.filte
             }
             filterChain.doFilter(request,response); return;
         }
-        boolean protectedPath = path.startsWith("/product/inventory") || path.equals("/product/create")
+        boolean protectedPath = path.startsWith("/product/design-requests") || path.matches("/product/categories/[^/]+/studio") || path.startsWith("/product/inventory") || path.equals("/product/create")
             || path.startsWith("/product/update/") || path.startsWith("/product/variants/update/")
             || path.startsWith("/product/variants/delete/");
         if (!protectedPath) { filterChain.doFilter(request,response); return; }
@@ -47,7 +47,7 @@ public class InventoryAuthenticationFilter extends org.springframework.web.filte
         String token = parseJwt(request);
 
         if (token == null) {
-            filterChain.doFilter(request, response);
+            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, "Authentication required; please sign in again");
             return;
         }
 
